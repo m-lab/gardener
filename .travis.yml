@@ -38,7 +38,7 @@ script:
 # Currently skipping storage tests, because they depend on GCS, and there is
 # no emulator.
 # TODO - separate storage tests into integration and lightweight.
-- MODULES="cloud/ds cloud/tq dedup"
+- MODULES="cloud/ds cloud/tq"
 - for module in $MODULES; do
     COVER_PKGS=${COVER_PKGS}./$module/..., ;
   done
