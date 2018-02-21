@@ -74,8 +74,8 @@ func (ol *OwnerLease) Validate() error {
 	return nil
 }
 
-// Renew renews the ownership lease for X minutes.
-// The receiver must have our own Hostname and InstanceID already set.
+// Renew renews the ownership lease for interval.
+// The receiver must have Hostname and InstanceID already set.
 // TODO - should this run on a timer, or in a go routine?
 func (ol *OwnerLease) Renew(saver *ds.Saver, interval time.Duration) error {
 	err := ol.Validate()
@@ -192,7 +192,6 @@ func (ol *OwnerLease) TakeOwnership(saver *ds.Saver, interval time.Duration) err
 	}
 	err = ol.WaitForOwnership(saver, interval)
 	return err
-
 }
 
 // DeleteLease deletes the lease iff held by ol.
@@ -218,5 +217,3 @@ func (ol *OwnerLease) DeleteLease(saver *ds.Saver) error {
 // ###############################################################################
 //  Dispatch interface and related code
 // ###############################################################################
-
-
