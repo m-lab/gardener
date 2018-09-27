@@ -395,7 +395,7 @@ func SanityCheckAndCopy(ctx context.Context, client *bigquery.Client, srcTable, 
 		return err
 	}
 
-	err = WaitForJob(context.Background(), job, 10*time.Second)
+	err = WaitForJob(ctx, job, 10*time.Second)
 	log.Println("Done")
 	return err
 }
