@@ -60,7 +60,7 @@ var ErrNoSaver = errors.New("Task.saver is nil")
 // the state.
 // It may terminate prematurely if terminate is closed prior to completion.
 // TODO - consider returning any error to caller.
-func (rex *ReprocessingExecutor) Next(t *state.Task, terminate <-chan struct{}) error {
+func (rex *ReprocessingExecutor) Next(ctx context.Context, t *state.Task, terminate <-chan struct{}) error {
 	// Note that only the state in state.Task is maintained between actions.
 	switch t.State {
 	case state.Initializing:
@@ -72,7 +72,7 @@ func (rex *ReprocessingExecutor) Next(t *state.Task, terminate <-chan struct{}) 
 
 	case state.Queuing:
 		// TODO - handle zero task case.
-		n, err := rex.queue(t)
+		n, err := rex.queue(ctx, t)
 		if err != nil {
 			// SetError also pushes to datastore, like Update()
 			t.SetError(err, "rex.queue")
@@ -109,7 +109,7 @@ func (rex *ReprocessingExecutor) Next(t *state.Task, terminate <-chan struct{}) 
 			t.SetError(err, "task.SourceAndDest")
 			return err
 		}
-		err = bq.WaitForStableTable(rex.Context, s)
+		err = bq.WaitForStableTable(ctx, s)
 		if err != nil {
 			// When testing, we expect to get ErrTableNotFound here.
 			if !env.TestMode || err != state.ErrTableNotFound {
@@ -122,7 +122,7 @@ func (rex *ReprocessingExecutor) Next(t *state.Task, terminate <-chan struct{}) 
 		t.Update(state.Deduplicating)
 
 	case state.Deduplicating:
-		if err := rex.dedup(t); err != nil {
+		if err := rex.dedup(ctx, t); err != nil {
 			// SetError also pushes to datastore, like Update()
 			t.SetError(err, "rex.dedup")
 			return err
@@ -131,7 +131,7 @@ func (rex *ReprocessingExecutor) Next(t *state.Task, terminate <-chan struct{}) 
 
 	case state.Finishing:
 		log.Println("Finishing")
-		if err := rex.finish(t, terminate); err != nil {
+		if err := rex.finish(ctx, t, terminate); err != nil {
 			// SetError also pushes to datastore, like Update()
 			t.SetError(err, "rex.finish")
 			return err
@@ -197,7 +197,7 @@ func (rex *ReprocessingExecutor) waitForParsing(t *state.Task, terminate <-chan 
 	return nil
 }
 
-func (rex *ReprocessingExecutor) queue(t *state.Task) (int, error) {
+func (rex *ReprocessingExecutor) queue(ctx context.Context, t *state.Task) (int, error) {
 	// Submit all files from the bucket that match the prefix.
 	// Where do we get the bucket?
 	//func (qh *ChannelQueueHandler) handleLoop(next api.BasicPipe, bucketOpts ...option.ClientOption) {
@@ -217,7 +217,7 @@ func (rex *ReprocessingExecutor) queue(t *state.Task) (int, error) {
 
 	// Use a real storage bucket.
 	// TODO - add a persistent storageClient to the rex object?
-	storageClient, err := storage.NewClient(context.Background(), rex.BucketOpts...)
+	storageClient, err := storage.NewClient(ctx, rex.BucketOpts...)
 	if err != nil {
 		log.Println(err)
 		t.SetError(err, "StorageClientError")
@@ -225,7 +225,7 @@ func (rex *ReprocessingExecutor) queue(t *state.Task) (int, error) {
 	}
 	// TODO - try cancelling the context instead?
 	defer storageClient.Close()
-	bucket, err := tq.GetBucket(rex.Context, storageClient, rex.Project, bucketName, false)
+	bucket, err := tq.GetBucket(ctx, storageClient, rex.Project, bucketName, false)
 	if err != nil {
 		if err == io.EOF && env.TestMode {
 			log.Println("Using fake client, ignoring EOF error")
@@ -237,7 +237,7 @@ func (rex *ReprocessingExecutor) queue(t *state.Task) (int, error) {
 	}
 	// NOTE: This does not check the terminate channel, so once started, it will
 	// complete the queuing.
-	n, err := qh.PostDay(bucket, bucketName, parts[1]+"/"+parts[2]+"/")
+	n, err := qh.PostDay(ctx, bucket, bucketName, parts[1]+"/"+parts[2]+"/")
 	if err != nil {
 		log.Println(err)
 		t.SetError(err, "PostDayError")
@@ -247,7 +247,7 @@ func (rex *ReprocessingExecutor) queue(t *state.Task) (int, error) {
 	return n, nil
 }
 
-func (rex *ReprocessingExecutor) dedup(t *state.Task) error {
+func (rex *ReprocessingExecutor) dedup(ctx context.Context, t *state.Task) error {
 	// Launch the dedup request, and save the JobID
 	ds, err := rex.GetDS()
 	if err != nil {
@@ -262,7 +262,7 @@ func (rex *ReprocessingExecutor) dedup(t *state.Task) error {
 
 	log.Println("Dedupping", src.FullyQualifiedName())
 	// TODO move Dedup??
-	job, err := bq.Dedup(rex.Context, &ds, src.TableID, dest)
+	job, err := bq.Dedup(ctx, &ds, src.TableID, dest)
 	if err != nil {
 		if err == io.EOF {
 			if env.TestMode {
@@ -322,7 +322,7 @@ func waitForJob(ctx context.Context, job *bigquery.Job, maxBackoff time.Duration
 	return nil
 }
 
-func (rex *ReprocessingExecutor) finish(t *state.Task, terminate <-chan struct{}) error {
+func (rex *ReprocessingExecutor) finish(ctx context.Context, t *state.Task, terminate <-chan struct{}) error {
 	// TODO use a simple client instead of creating dataset?
 	ds, err := bqext.NewDataset(rex.Project, rex.BQDataset, rex.Options...)
 	if err != nil {
@@ -334,20 +334,20 @@ func (rex *ReprocessingExecutor) finish(t *state.Task, terminate <-chan struct{}
 		t.SetError(err, "SourceAndDest")
 		return err
 	}
-	job, err := ds.BqClient.JobFromID(rex.Context, t.JobID)
+	job, err := ds.BqClient.JobFromID(ctx, t.JobID)
 	if err != nil {
 		t.SetError(err, "JobFromID")
 		return err
 	}
 	// TODO - should loop, and check terminate channel
-	err = waitForJob(rex.Context, job, 60*time.Second, terminate)
+	err = waitForJob(ctx, job, 60*time.Second, terminate)
 	if err != nil {
 		log.Println(err, src.FullyQualifiedName())
 		t.SetError(err, "waitForJob")
 		return err
 	}
 	// TODO - should this context have a deadline?
-	status, err := job.Wait(rex.Context)
+	status, err := job.Wait(ctx)
 	if err != nil {
 		if err != state.ErrTaskSuspended {
 			log.Println(status.Err(), src.FullyQualifiedName())
@@ -359,7 +359,7 @@ func (rex *ReprocessingExecutor) finish(t *state.Task, terminate <-chan struct{}
 	// Wait for JobID to complete, then delete the template table.
 	log.Println("Completed deduplication, deleting", src.FullyQualifiedName())
 	// If deduplication was successful, we should delete the source table.
-	ctx, cf := context.WithTimeout(rex.Context, time.Minute)
+	ctx, cf := context.WithTimeout(ctx, time.Minute)
 	defer cf()
 	err = src.Delete(ctx)
 	if err != nil {
