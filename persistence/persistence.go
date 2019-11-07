@@ -62,7 +62,9 @@ func (ds *DatastoreSaver) key(o StateObject) *datastore.Key {
 
 // Save implements Saver.Save using Datastore.
 func (ds *DatastoreSaver) Save(ctx context.Context, o StateObject) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	// These can be quite slow when there is a lot of activity.
+	// 10 seconds seems sufficient.
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	_, err := ds.Client.Put(ctx, ds.key(o), o)
 	if err != nil {
@@ -73,7 +75,9 @@ func (ds *DatastoreSaver) Save(ctx context.Context, o StateObject) error {
 
 // Delete implements Saver.Delete using Datastore.
 func (ds *DatastoreSaver) Delete(ctx context.Context, o StateObject) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	// These can be quite slow when there is a lot of activity.
+	// 10 seconds seems sufficient.
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	err := ds.Client.Delete(ctx, ds.key(o))
 	if err != nil {
