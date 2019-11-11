@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"bou.ke/monkey"
+
 	"github.com/m-lab/etl-gardener/reproc"
 	"github.com/m-lab/etl-gardener/state"
 )
@@ -164,4 +166,41 @@ func TestRestart(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 	log.Println(saver.tasks[taskName])
+}
+
+var fakeNow = time.Date(2019, 01, 01, 0, 0, 0, 0, time.UTC)
+
+func fakeTimer(start time.Time, ticker *time.Ticker, increment time.Duration) {
+	fakeNow = start
+	go func() {
+		for range ticker.C {
+			fakeNow = fakeNow.Add(increment)
+		}
+	}()
+}
+
+func now() time.Time {
+	return fakeNow
+}
+
+func TestMP(t *testing.T) {
+
+	second := time.NewTicker(100 * time.Millisecond)
+
+	// Set up time to go at approximately 10 days/second.
+	ticker := time.NewTicker(time.Millisecond)
+	fakeTimer(time.Now().AddDate(0, -1, 0), ticker, 24*time.Hour/100)
+
+	monkey.Patch(time.Now, now)
+	log.Println(time.Now())
+
+	for i := 0; i < 10; i++ {
+		<-second.C
+		log.Println(time.Now())
+	}
+
+	monkey.Unpatch(time.Now)
+	log.Println(time.Now())
+
+	t.Fail()
 }
