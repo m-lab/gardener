@@ -30,7 +30,7 @@ func TestPostOneTask(t *testing.T) {
 	}
 }
 
-func TestMetrics(t *testing.T) {
+func XTestMetrics(t *testing.T) {
 	tq.EmptyStatsRecoveryTimeHistogramSecs.WithLabelValues("x")
 	promtest.LintMetrics(nil) // Log warnings only.
 }
