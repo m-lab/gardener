@@ -343,6 +343,7 @@ func (at *AnnotatedTable) checkAlmostAsBig(ctx context.Context, other *Annotated
 	}
 	// We are now using DISTINCT test counts, so we can use a tighter bound.
 	if float32(thisDetail.TestCount) < testCountRequirement*float32(otherDetail.TestCount) {
+		log.Printf("Before is %d, after is %d", otherDetail.TestCount, thisDetail.TestCount)
 		return ErrTooFewTests
 	}
 	return nil
