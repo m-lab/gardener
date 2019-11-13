@@ -286,7 +286,7 @@ func TestDoDispatchLoop(t *testing.T) {
 	recent := "gs://foobar/exp" + start.Add(-24*time.Hour).Format("/2006/01/02/")
 	// We expect to see at least 3 distinct recent dates...
 	recents := map[string]bool{}
-	tasks := saver.getTaskStates()
+	tasks := saver.GetTasks()
 	for _, task := range tasks {
 		taskEnd := task[len(task)-1]
 		if taskEnd.Name >= recent {
