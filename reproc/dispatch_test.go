@@ -3,6 +3,7 @@ package reproc_test
 import (
 	"context"
 	"flag"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"sync"
@@ -16,7 +17,7 @@ import (
 	"github.com/m-lab/etl-gardener/state"
 )
 
-var verbose = false
+type Task = state.Task
 
 func init() {
 	// Always prepend the filename and line number.
@@ -25,6 +26,16 @@ func init() {
 
 func assertTaskPipe(t state.Terminator) {
 	func(t state.Terminator) {}(&reproc.Terminator{})
+}
+
+var verbose = log.New(ioutil.Discard, "", 0)
+
+func setVerbose(b bool) {
+	if b {
+		verbose = log.New(log.Writer(), log.Prefix(), log.Flags())
+	} else {
+		verbose = log.New(ioutil.Discard, "", 0)
+	}
 }
 
 // This test exercises the termination sequencing.  It does not check
@@ -51,58 +62,63 @@ func TestTerminator(t *testing.T) {
 }
 
 //===================================================
+// Note that this code is mostly identical to code in state/state_test.go
 type testSaver struct {
-	tasks  map[string][]state.Task
-	delete map[string]struct{}
 	lock   sync.Mutex
+	tasks  map[string][]Task
+	delete map[string]struct{}
 }
 
 func NewTestSaver() *testSaver {
-	return &testSaver{make(map[string][]state.Task, 20), make(map[string]struct{}, 20), sync.Mutex{}}
+	return &testSaver{tasks: make(map[string][]Task, 20), delete: make(map[string]struct{}, 20)}
 }
 
-func (s *testSaver) SaveTask(ctx context.Context, t state.Task) error {
-	//log.Println(t)
+func (s *testSaver) SaveTask(ctx context.Context, t Task) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.tasks[t.Name] = append(s.tasks[t.Name], t)
 	return nil
 }
 
-func (s *testSaver) DeleteTask(ctx context.Context, t state.Task) error {
-	//log.Println("Delete:", t)
+func (s *testSaver) DeleteTask(ctx context.Context, t Task) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.delete[t.Name] = struct{}{}
 	return nil
 }
 
-func (s *testSaver) getTask(name string) []state.Task {
+func (s *testSaver) GetTasks() map[string][]Task {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	m := make(map[string][]Task, len(s.tasks))
+	for k, v := range s.tasks {
+		m[k] = v
+	}
+	return m
+}
+
+func (s *testSaver) GetTask(name string) []Task {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	return s.tasks[name]
 }
 
-func (s *testSaver) getTaskStates() [][]state.Task {
+func (s *testSaver) GetDeletes(t Task) map[string]struct{} {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	taskStates := make([][]state.Task, len(s.tasks))
-	i := 0
-	for _, t := range s.tasks {
-		taskStates[i] = t
-		i++
+	d := make(map[string]struct{}, len(s.delete))
+	for k, v := range s.delete {
+		d[k] = v
 	}
-	return taskStates
+	return d
 }
 
 func assertPersistentStore() { func(ex state.PersistentStore) {}(&testSaver{}) }
 
 type Exec struct{}
 
-func (ex *Exec) Next(ctx context.Context, t *state.Task, terminate <-chan struct{}) error {
-	if verbose {
-		log.Println("Do", t)
-	}
+func (ex *Exec) Next(ctx context.Context, t *Task, terminate <-chan struct{}) error {
+	verbose.Println("Do", t)
 
 	time.Sleep(time.Duration(1+rand.Intn(2)) * time.Millisecond)
 
@@ -158,7 +174,7 @@ func TestBasic(t *testing.T) {
 // may fail to complete.  Also, running with -race may detect race
 // conditions.
 func TestWithTaskQueue(t *testing.T) {
-	verbose = true
+	setVerbose(true)
 
 	ctx := context.Background()
 	// Start tracker with one queue.
@@ -177,7 +193,7 @@ func TestWithTaskQueue(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
-	verbose = true
+	setVerbose(true)
 
 	ctx := context.Background()
 	exec := Exec{}
@@ -190,16 +206,16 @@ func TestRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tasks := []state.Task{*t1}
+	tasks := []Task{*t1}
 	th.RestartTasks(ctx, tasks)
 
 	// Restarts are asynchronous, so wait up to 5 seconds for task to be started.
 	start := time.Now()
 	for time.Since(start) < 5*time.Second &&
-		saver.getTask(taskName) == nil {
+		saver.GetTask(taskName) == nil {
 		time.Sleep(10 * time.Millisecond)
 	}
-	if saver.getTask(taskName) == nil {
+	if saver.GetTask(taskName) == nil {
 		t.Fatal("Task never started")
 	}
 }
@@ -249,7 +265,7 @@ This block of code ^^^^^^ will move to go/test
 ***********************************************/
 
 func TestDoDispatchLoop(t *testing.T) {
-	verbose = false
+	setVerbose(false)
 
 	// Set up time to go at approximately 30 days/second.
 	stop := FakeTime(int64((30 * 24 * time.Hour) / (1000 * time.Millisecond)))
@@ -280,7 +296,7 @@ func TestDoDispatchLoop(t *testing.T) {
 	recent := "gs://foobar/exp" + start.Add(-24*time.Hour).Format("/2006/01/02/")
 	// We expect to see at least 3 distinct recent dates...
 	recents := map[string]bool{}
-	tasks := saver.getTaskStates()
+	tasks := saver.GetTasks()
 	for _, task := range tasks {
 		taskEnd := task[len(task)-1]
 		if taskEnd.Name >= recent {
