@@ -2,23 +2,14 @@ package persistence
 
 import (
 	"context"
-	"io/ioutil"
-	"log"
 	"reflect"
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"github.com/m-lab/go/logx"
 )
 
-var verbose = log.New(ioutil.Discard, "", 0)
-
-func setVerbose(b bool) {
-	if b {
-		verbose = log.New(log.Writer(), log.Prefix(), log.Flags())
-	} else {
-		verbose = log.New(ioutil.Discard, "", 0)
-	}
-}
+var debug = logx.Debug
 
 // StateObject defines the interface for objects to be saved/retrieved from datastore.
 type StateObject interface {
@@ -62,9 +53,9 @@ func (ds *DatastoreSaver) Save(ctx context.Context, o StateObject) error {
 	// 10 seconds seems sufficient.
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	verbose.Println("Saving", o.Key())
+	debug.Println("Saving", o.Key())
 	_, err := ds.Client.Put(ctx, ds.key(o), o)
-	verbose.Println("Saved", o.Key(), err)
+	debug.Println("Saved", o.Key(), err)
 	if err != nil {
 		return err
 	}
@@ -77,9 +68,9 @@ func (ds *DatastoreSaver) Delete(ctx context.Context, o StateObject) error {
 	// 10 seconds seems sufficient.
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	verbose.Println("Deleting", o.Key())
+	debug.Println("Deleting", o.Key())
 	err := ds.Client.Delete(ctx, ds.key(o))
-	verbose.Println("Deleted", o.Key(), err, time.Now())
+	debug.Println("Deleted", o.Key(), err, time.Now())
 	if err != nil {
 		return err
 	}
