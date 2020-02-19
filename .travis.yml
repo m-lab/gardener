@@ -67,12 +67,12 @@ script:
 - cd $TRAVIS_BUILD_DIR
 # This is failing since go 1.13.  See https://github.com/golang/go/issues/30374
 # - go test -v -coverpkg=./... -coverprofile=_unit.cov ./...
-- go test -v -coverprofile=_unit.cov ./...
+- GCLOUD_PROJECT=mlab-testing go test -v -coverprofile=_unit.cov ./...
 
 # Rerun modules with integration tests.  This means that some tests are
 # repeated, but otherwise we lose some coverage.
 - if [[ -n "$SERVICE_ACCOUNT_mlab_testing" ]] ; then
-    go test -v -coverprofile=_integration.cov ./... -tags=integration ;
+    GCLOUD_PROJECT=mlab-testing go test -v -coverprofile=_integration.cov ./... -tags=integration ;
   fi
 
 # Also run some concurrency sensitive tests with -race
