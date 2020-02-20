@@ -132,5 +132,8 @@ func NextJob(ctx context.Context, base url.URL) (tracker.Job, error) {
 	}
 
 	err = json.Unmarshal(b, &job)
+	if err != nil {
+		log.Println(err, string(b))
+	}
 	return job, err
 }
