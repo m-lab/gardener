@@ -55,7 +55,7 @@ func (tbl testTable) Metadata(ctx context.Context) (*bigquery.TableMetadata, err
 
 func TestSanityCheckAndCopyTesting(t *testing.T) {
 	ctx := context.Background()
-	ds, err := dataset.NewDataset(ctx, "mlab-testing", "base_tables")
+	ds, err := dataset.NewDataset(ctx, "mlab-testing", "batch")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,6 @@ func TestSanityCheckAndCopyTesting(t *testing.T) {
 	log.Println(err)
 }
 
-/*
 // getTableParts separates a table name into prefix/base, separator, and partition date.
 func Test_getTableParts(t *testing.T) {
 	parts, err := getTableParts("table$20160102")
@@ -93,6 +92,12 @@ func Test_getTableParts(t *testing.T) {
 		if parts.isPartitioned {
 			t.Error("Should not be partitioned")
 		}
+		if parts.prefix != "table" {
+			t.Error("incorrect prefix: " + parts.prefix)
+		}
+		if parts.yyyymmdd != "20160102" {
+			t.Error("incorrect partition: " + parts.yyyymmdd)
+		}
 	}
 	parts, err = getTableParts("table$2016010")
 	if err == nil {
@@ -108,7 +113,7 @@ func Test_getTableParts(t *testing.T) {
 	}
 }
 
-
+/*
 func TestSanityCheckAndCopy(t *testing.T) {
 	ctx := context.Background()
 	ds, err := dataset.NewDataset(ctx, "project", "dataset")

@@ -154,6 +154,8 @@ func GetTableDetail(ctx context.Context, dsExt *dataset.Dataset, table bqiface.T
 	// If table is a partition, then we have to separate out the partition part for the query.
 	parts := strings.Split(table.TableID(), "$")
 	dataset := table.DatasetID()
+	log.Println(dataset)
+	log.Println(table.TableID())
 	tableName := parts[0]
 	where := ""
 	if len(parts) > 1 {
@@ -197,13 +199,13 @@ func GetTableDetail(ctx context.Context, dsExt *dataset.Dataset, table bqiface.T
 	query := legacyQuery
 	log.Printf(parts[0])
 
-	s := strings.Split(parts[0], "_")
-	tt := s[0]
-	if tt == "tcpinfo" {
+	tt := strings.Split(parts[0], "_")
+	log.Printf(tt[0])
+	if tt[0] == "tcpinfo" {
 		query = tcpinfoQuery
-	} else if (tt == "ndt5") || (tt == "ndt7") {
+	} else if (tt[0] == "ndt5") || (tt[0] == "ndt7") {
 		query = resultNDTQuery
-	} else if tt == "traceroute" {
+	} else if tt[0] == "traceroute" {
 		query = tracerouteQuery
 	}
 	err := dsExt.QueryAndParse(ctx, query, &detail)
@@ -427,7 +429,7 @@ func SanityCheckAndCopy(ctx context.Context, src, dest *AnnotatedTable) error {
 	err = src.checkModifiedAfter(ctx, dest)
 	if err != nil {
 		// TODO: Should we delete the source table here?
-		log.Printf("%s modified (%v) after %s (%v)\n", src.FullyQualifiedName(), src.LastModifiedTime(ctx), dest.FullyQualifiedName(), dest.LastModifiedTime(ctx))
+		log.Printf("%s should be modified (%v) after %s (%v)\n", src.FullyQualifiedName(), src.LastModifiedTime(ctx), dest.FullyQualifiedName(), dest.LastModifiedTime(ctx))
 		return err
 	}
 
