@@ -55,12 +55,12 @@ func (tbl testTable) Metadata(ctx context.Context) (*bigquery.TableMetadata, err
 
 func TestSanityCheckAndCopyTesting(t *testing.T) {
 	ctx := context.Background()
-	ds, err := dataset.NewDataset(ctx, "mlab-testing", "batch")
+	ds, err := dataset.NewDataset(ctx, "mlab-staging", "batch")
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := ds.Table("traceroute_20191102")
-	dest := ds.Table("traceroute$20191102")
+	src := ds.Table("traceroute_20130524")
+	dest := ds.Table("traceroute$20130524")
 	srcAt := NewAnnotatedTable(src, &ds)
 	destAt := NewAnnotatedTable(dest, &ds)
 
