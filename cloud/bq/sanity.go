@@ -182,7 +182,7 @@ func GetTableDetail(ctx context.Context, dsExt *dataset.Dataset, table bqiface.T
 
 	tracerouteQuery := fmt.Sprintf(`
 		#standardSQL
-		SELECT COUNT(DISTINCT ParseInfo.TaskFileName) AS TestCount, COUNT(DISTINCT ParseInfo.TaskFileName) AS TaskFileCount
+		SELECT COUNT(DISTINCT Parseinfo.Filename) AS TestCount, COUNT(DISTINCT ParseInfo.TaskFileName) AS TaskFileCount
     FROM `+"`%s.%s`"+`
 		%s  -- where clause`,
 		dataset, tableName, where)
@@ -344,7 +344,7 @@ func (at *AnnotatedTable) checkAlmostAsBig(ctx context.Context, other *Annotated
 	// Check that receiver table contains at least 95% as many tests as
 	// other table.  This may be fewer if the destination table still has dups.
 	if thisDetail.TestCount < otherDetail.TestCount {
-		log.Printf("Warning - fewer tests: %s(%d) < %s(%d)\n",
+		log.Printf("Warning_fewer_tests: %s(%d) < %s(%d)\n",
 			at.Table.FullyQualifiedName(), thisDetail.TestCount,
 			other.Table.FullyQualifiedName(), otherDetail.TestCount)
 	}
@@ -354,6 +354,8 @@ func (at *AnnotatedTable) checkAlmostAsBig(ctx context.Context, other *Annotated
 		log.Println("dest_tests_count: ", other.TableID(), otherDetail.TestCount)
 		return ErrTooFewTests
 	}
+	log.Println("source_tests_count: ", at.FullyQualifiedName(), thisDetail.TestCount)
+	log.Println("dest_tests_count: ", other.FullyQualifiedName(), otherDetail.TestCount)
 	return nil
 }
 
@@ -428,12 +430,12 @@ func SanityCheckAndCopy(ctx context.Context, src, dest *AnnotatedTable) error {
 		return err
 	}
 
-	err = src.checkModifiedAfter(ctx, dest)
+	/*err = src.checkModifiedAfter(ctx, dest)
 	if err != nil {
 		// TODO: Should we delete the source table here?
 		log.Printf("%s should be modified (%v) after %s (%v)\n", src.FullyQualifiedName(), src.LastModifiedTime(ctx), dest.FullyQualifiedName(), dest.LastModifiedTime(ctx))
 		return err
-	}
+	}*/
 
 	copier := dest.Table.CopierFrom(src.Table)
 	config := bqiface.CopyConfig{}
