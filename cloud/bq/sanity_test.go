@@ -55,22 +55,22 @@ func (tbl testTable) Metadata(ctx context.Context) (*bigquery.TableMetadata, err
 
 func TestSanityCheckAndCopyTesting(t *testing.T) {
 	ctx := context.Background()
-	ds, err := dataset.NewDataset(ctx, "mlab-staging", "batch")
+	ds, err := dataset.NewDataset(ctx, "mlab-testing", "batch")
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := ds.Table("traceroute_20130524")
-	dest := ds.Table("traceroute$20130524")
+	src := ds.Table("traceroute_20191115")
+	dest := ds.Table("traceroute$20191115")
 	srcAt := NewAnnotatedTable(src, &ds)
 	destAt := NewAnnotatedTable(dest, &ds)
 
 	err = SanityCheckAndCopy(ctx, srcAt, destAt)
 	log.Println(err)
 }
-
+/*
 // getTableParts separates a table name into prefix/base, separator, and partition date.
 func Test_getTableParts(t *testing.T) {
-	parts, err := getTableParts("table$20160102")
+	parts, err := getTableParts("table$20191115")
 	if err != nil {
 		t.Error(err)
 	} else {
