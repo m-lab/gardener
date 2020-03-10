@@ -47,9 +47,9 @@ spec:
         # NOTE: We read archives from the public archive for all projects.
         # TODO: Update when we address https://github.com/m-lab/dev-tracker/issues/369
         - name: TASKFILE_BUCKET
-          value: "archive-measurement-lab"
+          value: "archive-{{GCLOUD_PROJECT}}"
         - name: START_DATE
-          value: "20190329"
+          value: "20200201" # TODO(soltesz): restore after normalization is complete "20190329".
         - name: DATE_SKIP  # Should be 0 for normal operation
           value: "{{DATE_SKIP}}"
         - name: TASK_FILE_SKIP # Should be 0 for normal operation
