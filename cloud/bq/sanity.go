@@ -173,7 +173,7 @@ func GetTableDetail(ctx context.Context, dsExt *dataset.Dataset, table bqiface.T
 
 	tcpinfoQuery := fmt.Sprintf(`
 		#standardSQL
-		SELECT COUNT(DISTINCT UUID) AS TestCount, COUNT(DISTINCT ParseInfo.TaskFileName) AS TaskFileCount
+		SELECT COUNT(DISTINCT UUID) AS TestCount, COUNT(DISTINCT REGEXP_EXTRACT(ParseInfo.TaskFilename, "gs://.*/(.*)$")) AS TaskFileCount
     FROM `+"`%s.%s`"+`
 		%s  -- where clause`,
 		dataset, tableName, where)
@@ -187,7 +187,7 @@ func GetTableDetail(ctx context.Context, dsExt *dataset.Dataset, table bqiface.T
 
 	resultNDTQuery := fmt.Sprintf(`
 		#standardSQL
-		SELECT COUNT(DISTINCT test_id) AS TestCount, COUNT(DISTINCT ParseInfo.TaskFileName) AS TaskFileCount
+		SELECT COUNT(DISTINCT test_id) AS TestCount, COUNT(DISTINCT REGEXP_EXTRACT(ParseInfo.TaskFilename, "gs://.*/(.*)$")) AS TaskFileCount
     FROM `+"`%s.%s`"+`
 		%s  -- where clause`,
 		dataset, tableName, where)

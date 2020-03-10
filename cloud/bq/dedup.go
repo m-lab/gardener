@@ -193,7 +193,7 @@ var dedupTemplateTCPInfo = `
     FROM (
 		SELECT *,
 		# Prefer more snapshots, earlier task names, later parse time
-		ROW_NUMBER() OVER (PARTITION BY uuid ORDER BY ARRAY_LENGTH(Snapshots) DESC, ParseInfo.TaskFileName, ParseInfo.ParseTime DESC) row_number
+		ROW_NUMBER() OVER (PARTITION BY uuid ORDER BY ARRAY_LENGTH(Snapshots) DESC, REGEXP_EXTRACT(ParseInfo.TaskFileName, "gs://.*/(.*)$"), ParseInfo.ParseTime DESC) row_number
         FROM (
 			SELECT *
     		FROM ` + "`%s`" + `
