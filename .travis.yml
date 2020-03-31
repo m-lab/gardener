@@ -18,6 +18,9 @@ before_install:
 # TODO: maybe just use travis apt: packages: ?
 - $TRAVIS_BUILD_DIR/travis/install_gcloud.sh
 - source "${HOME}/google-cloud-sdk/path.bash.inc"
+# - pip install --upgrade pip
+- pip install --user jsonnet
+- which jsonnet
 
 # Install test credentials.
 # The service account variables are uploaded to travis by running,
