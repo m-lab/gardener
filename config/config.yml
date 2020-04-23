@@ -15,6 +15,6 @@ sources:
   target: tmp_ndt.annotation
 - bucket: archive-measurement-lab
   experiment: ndt
-  datatype: tcpinfo
+  datatype: ndt5
   filter: .*T??:??:00.*Z  # Not yet used - just for illustration
-  target: tmp_ndt.tcpinfo
+  target: tmp_ndt.ndt5

@@ -59,6 +59,18 @@ func NewQueryParamsWithClient(client bqiface.Client, job tracker.Job, project st
 			Order:     "",
 		}, nil
 
+	case "ndt5":
+		return &queryParams{
+			client:    client,
+			Project:   project,
+			TestTime:  "log_time",
+			Job:       job,
+			Partition: map[string]string{"test_id": "test_id"},
+			Order:     "",
+		}, nil
+
+
+
 	case "ndt7":
 		return &queryer{
 			client:    client,
