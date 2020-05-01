@@ -216,9 +216,7 @@ func (tr *Tracker) SetDetail(job Job, detail string) error {
 }
 
 // SetStatus updates a job's state in memory.
-// It may or may not change the job state.  If it does change state,
-// the detail string is applied to the last state, not the new state.
-func (tr *Tracker) SetStatus(job Job, state State, detail string) error {
+func (tr *Tracker) SetStatus(job Job, newState State, detail string) error {
 	// NOTE: This is not a deep copy.  Shares the History elements.
 	status, err := tr.GetStatus(job)
 	if err != nil {
@@ -228,10 +226,10 @@ func (tr *Tracker) SetStatus(job Job, state State, detail string) error {
 	last := status.LastStateInfo()
 	status.SetDetail(detail)
 
-	if state != last.State {
-		status.NewState(state)
+	if newState != last.State {
+		status.NewState(newState)
 
-		if state == ParseComplete {
+		if newState == ParseComplete {
 			// TODO enable this once we have file or byte counts.
 			// Alternatively, incorporate this into the next Action!
 			// Update the metrics, even if there is an error, since the files were submitted to the queue already.
