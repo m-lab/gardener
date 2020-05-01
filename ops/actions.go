@@ -46,13 +46,23 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 	m.AddAction(tracker.Deduplicating,
 		nil,
 		dedupFunc,
-		tracker.Complete,
+		tracker.Copying,
 		"Deduplicating")
+	m.AddAction(tracker.Copying,
+		nil,
+		copyFunc,
+		tracker.Cleaning,
+		"Copying")
+	m.AddAction(tracker.Cleaning,
+		nil,
+		cleanupFunc,
+		tracker.Complete,
+		"Cleaning")
 	return m, nil
 }
 
 // Waits for bqjob to complete, handles backoff and job updates.
-// Returns non-nil status if successful.
+// If Outcome is Success, status will be non-nil, and non-error.
 func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label string) (*bigquery.JobStatus, *Outcome) {
 	status, err := bqJob.Wait(ctx)
 	if err != nil {
@@ -95,7 +105,6 @@ func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label s
 
 // TODO improve test coverage?
 func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
-	start := time.Now()
 	// This is the delay since entering the dedup state, due to monitor delay
 	// and retries.
 	// delay := time.Since(s.LastStateChangeTime()).Round(time.Minute)
@@ -119,18 +128,15 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 	if !errors.Is(outcome, IsDone) {
 		return outcome
 	}
-	if status == nil {
-		// Nil status means the job failed.
-		return Failure(j, errors.New("nil status"), "-")
-	}
 
 	// Dedup job was successful.  Handle the statistics, metrics, tracker update.
-	switch details := status.Statistics.Details.(type) {
+	stats := status.Statistics
+	switch details := stats.Details.(type) {
 	case *bigquery.QueryStatistics:
+		cleanupTime := stats.EndTime.Sub(stats.StartTime)
 		metrics.QueryCostHistogram.WithLabelValues(j.Datatype, "dedup").Observe(float64(details.SlotMillis) / 1000.0)
 		msg = fmt.Sprintf("Dedup took %s (after xxx waiting), %5.2f Slot Minutes, %d Rows affected, %d MB Processed, %d MB Billed",
-			time.Since(start).Round(100*time.Millisecond).String(),
-			//delay,
+			cleanupTime.Round(100*time.Millisecond),
 			float64(details.SlotMillis)/60000, details.NumDMLAffectedRows,
 			details.TotalBytesProcessed/1000000, details.TotalBytesBilled/1000000)
 		log.Println(msg)
@@ -139,6 +145,84 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 		log.Printf("Could not convert to QueryStatistics: %+v\n", status.Statistics.Details)
 		msg = "Could not convert Detail to QueryStatistics"
 	}
+	return Success(j, msg)
+}
 
+// TODO This is costly.  Consider using decorated table delete.
+// TODO improve test coverage?
+func cleanupFunc(ctx context.Context, j tracker.Job) *Outcome {
+	var bqJob bqiface.Job
+	// TODO pass in the JobWithTarget, and get the base from the target.
+	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"))
+	if err != nil {
+		log.Println(err)
+		// This terminates this job.
+		return Failure(j, err, "-")
+	}
+	bqJob, err = qp.Run(ctx, "cleanup", false)
+	if err != nil {
+		log.Println(err)
+		// Try again soon.
+		return Retry(j, err, "-")
+	}
+	status, outcome := waitAndCheck(ctx, bqJob, j, "Cleanup")
+	if !errors.Is(outcome, IsDone) {
+		return outcome
+	}
+
+	var msg string
+	// Dedup job was successful.  Handle the statistics, metrics, tracker update.
+	stats := status.Statistics
+	switch details := stats.Details.(type) {
+	case *bigquery.QueryStatistics:
+		cleanupTime := stats.EndTime.Sub(stats.StartTime)
+		metrics.QueryCostHistogram.WithLabelValues(j.Datatype, "cleanup").Observe(float64(details.SlotMillis) / 1000.0)
+		msg = fmt.Sprintf("Cleanup took %s (after xxx waiting), %5.2f Slot Minutes, %d Rows affected, %d MB Processed, %d MB Billed",
+			cleanupTime.Round(100*time.Millisecond),
+			float64(details.SlotMillis)/60000, details.NumDMLAffectedRows,
+			details.TotalBytesProcessed/1000000, details.TotalBytesBilled/1000000)
+		log.Println(msg)
+		log.Printf("Cleanup %s: %+v\n", j, details)
+	default:
+		log.Printf("Could not convert to QueryStatistics: %+v\n", status.Statistics.Details)
+		msg = "Could not convert Detail to QueryStatistics"
+	}
+	return Success(j, msg)
+}
+
+// TODO improve test coverage?
+func copyFunc(ctx context.Context, j tracker.Job) *Outcome {
+	// This is the delay since entering the dedup state, due to monitor delay
+	// and retries.
+	// delay := time.Since(s.LastStateChangeTime()).Round(time.Minute)
+
+	var bqJob bqiface.Job
+	// TODO pass in the JobWithTarget, and get the base from the target.
+	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"))
+	if err != nil {
+		log.Println(err)
+		// This terminates this job.
+		return Failure(j, err, "-")
+	}
+	bqJob, err = qp.Copy(ctx, false)
+	if err != nil {
+		log.Println(err)
+		// Try again soon.
+		return Retry(j, err, "-")
+	}
+	status, outcome := waitAndCheck(ctx, bqJob, j, "Copy")
+	if !errors.Is(outcome, IsDone) {
+		return outcome
+	}
+
+	var msg string
+	stats := status.Statistics
+	if stats != nil {
+		copyTime := stats.EndTime.Sub(stats.StartTime)
+		msg = fmt.Sprintf("Copy took %s (after xxx waiting), %d MB Processed",
+			copyTime.Round(100*time.Millisecond),
+			stats.TotalBytesProcessed/1000000)
+		log.Println(msg)
+	}
 	return Success(j, msg)
 }
