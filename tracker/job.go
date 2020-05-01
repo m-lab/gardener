@@ -165,6 +165,7 @@ func NewStateInfo(state State, detail string) StateInfo {
 }
 
 // Update changes the update time and detail string (if != "-").
+// NOT THREADSAFE.  Caller must control access.
 func (si *StateInfo) Update(detail string) {
 	si.LastUpdateTime = time.Now()
 	if detail != "-" {
@@ -182,13 +183,15 @@ type Status struct {
 
 	UpdateCount int // Number of updates
 
+	// History has shared backing store.  Copy on write is used to avoid
+	// changing the underlying StateInfo that is shared by the tracker
+	// JobMap and accessed concurrently by other goroutines.
 	History []StateInfo
 }
 
-// LastStateInfo returns the StateInfo for the most recent state.
-func (s *Status) LastStateInfo() *StateInfo {
-	// TODO check for no history, and create one on the fly?
-	return &s.History[len(s.History)-1]
+// LastStateInfo returns copy of the StateInfo for the most recent state.
+func (s *Status) LastStateInfo() StateInfo {
+	return s.History[len(s.History)-1]
 }
 
 // State returns the job State enum.
@@ -197,13 +200,14 @@ func (s *Status) State() State {
 }
 
 // LastUpdate returns the most recent update detail string.
+// NOTE: update field for Failed state is the error message, so
+// the previous StateInfo is used for LastUpdate.
 func (s *Status) LastUpdate() string {
 	lsi := s.LastStateInfo()
-	if lsi.State != Failed || len(s.History) < 2 {
-		return lsi.LastUpdate
+	if lsi.State == Failed && len(s.History) > 1 {
+		lsi = s.History[len(s.History)-2]
 	}
-	prev := s.History[len(s.History)-2]
-	return prev.LastUpdate
+	return lsi.LastUpdate
 }
 
 // UpdateTime returns the timestamp of the most recent update.
@@ -221,9 +225,24 @@ func (s *Status) StartTime() time.Time {
 	return s.History[0].Start
 }
 
-// UpdateDetail changes the current state's detail
-func (s *Status) UpdateDetail(detail string) {
-	s.LastStateInfo().Update(detail)
+// UpdateDetail replaces the most recent StateInfo with copy with new detail.
+func (s *Status) UpdateDetail(detail string) StateInfo {
+	if detail == "-" {
+		return s.LastStateInfo()
+	}
+	result := s.LastStateInfo()
+	// The History is not deep copied, so we do copy on write
+	// to avoid race.
+	h := s.History
+	h = make([]StateInfo, len(s.History), cap(s.History))
+	copy(h, s.History)
+
+	last := len(h) - 1
+	lsi := &h[last]
+	lsi.Update(detail)
+	// Replace the entire history
+	s.History = h
+	return result
 }
 
 func (s *Status) Error() string {
@@ -234,24 +253,21 @@ func (s *Status) Error() string {
 	return ""
 }
 
-// Update applies provided state and detail, and returns the previous
-// StateInfo.
-// If the
+// Update applies the detail as LastUpdate, and transitions to new State
+// if different from the previous state.
 func (s *Status) Update(state State, detail string) StateInfo {
-	target := s.LastStateInfo()
-	result := *target     // Make a copy
-	target.Update(detail) // Detail belongs to previous state.
-	if target.State != state {
+	old := s.UpdateDetail(detail)
+	if s.State() == state {
+		return old
+	}
+	if old.State != state {
 		s.History = append(s.History, NewStateInfo(state, detail))
 	}
-	return result
+	return old
 }
 
 func (s Status) String() string {
 	last := s.LastStateInfo()
-	if last == nil {
-		return "no state history"
-	}
 	return fmt.Sprintf("%s %s (%s)",
 		s.UpdateTime().Format("01/02~15:04:05"),
 		last.State,
