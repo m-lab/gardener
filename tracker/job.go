@@ -198,7 +198,12 @@ func (s *Status) State() State {
 
 // LastUpdate returns the most recent update detail string.
 func (s *Status) LastUpdate() string {
-	return s.LastStateInfo().LastUpdate
+	lsi := s.LastStateInfo()
+	if lsi.State != Failed || len(s.History) < 2 {
+		return lsi.LastUpdate
+	}
+	prev := s.History[len(s.History)-2]
+	return prev.LastUpdate
 }
 
 // UpdateTime returns the timestamp of the most recent update.

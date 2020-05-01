@@ -21,7 +21,7 @@ func init() {
 }
 
 func newStateFunc(detail string) ops.ActionFunc {
-	return func(ctx context.Context, j tracker.Job) *ops.Outcome {
+	return func(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *ops.Outcome {
 		return ops.Success(j, detail)
 	}
 }
