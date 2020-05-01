@@ -154,6 +154,16 @@ type StateInfo struct {
 	LastUpdate     string // status or error, e.g. last filename in Parsing state.
 }
 
+// NewStateInfo returns a properly initialized StateInfo
+func NewStateInfo(state State, detail string) StateInfo {
+	now := time.Now()
+	si := StateInfo{State: state, Start: now, LastUpdateTime: now}
+	if len(detail) > 0 && detail != "-" {
+		si.LastUpdate = detail
+	}
+	return si
+}
+
 // Update changes the update time and detail string (if != "-").
 func (si *StateInfo) Update(detail string) {
 	si.LastUpdateTime = time.Now()
@@ -226,16 +236,16 @@ func (s *Status) Error() string {
 	return ""
 }
 
-// Update changes the current state and detail, and returns
-// the previous final StateInfo.
+// Update applies provided state and detail, and returns the previous
+// StateInfo.
+// If the
 func (s *Status) Update(state State, detail string) StateInfo {
 	target := s.LastStateInfo()
-	result := *target // Make a copy
+	result := *target     // Make a copy
+	target.Update(detail) // Detail belongs to previous state.
 	if target.State != state {
-		s.History = append(s.History, StateInfo{State: state, Start: time.Now()})
-		target = s.LastStateInfo()
+		s.History = append(s.History, NewStateInfo(state, detail))
 	}
-	target.Update(detail)
 	return result
 }
 
