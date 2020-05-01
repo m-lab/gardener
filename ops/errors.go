@@ -17,10 +17,10 @@ type Outcome struct {
 
 // Specific errors for errors.Is
 var (
-	errEmpty = errors.New("")
+	emptyError = errors.New("")
 
-	ShouldRetry = &Outcome{retry: true, error: errEmpty}
-	ShouldFail  = &Outcome{retry: false, error: errEmpty}
+	ShouldRetry = &Outcome{retry: true, error: emptyError}
+	ShouldFail  = &Outcome{retry: false, error: emptyError}
 	IsDone      = &Outcome{retry: false}
 )
 
