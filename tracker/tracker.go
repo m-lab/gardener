@@ -241,11 +241,12 @@ func (tr *Tracker) SetJobError(job Job, errString string) error {
 	if err != nil {
 		return err
 	}
+	timeInState := time.Since(status.LastStateChangeTime())
+
 	// For now, we set state to failed.  We may want something different in future.
 	old := status.Update(Failed, errString)
 	job.failureMetric(errString)
 
-	timeInState := time.Since(status.LastStateChangeTime())
 	metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
 	metrics.StateDate.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Set(float64(job.Date.Unix()))
 
