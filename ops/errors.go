@@ -54,10 +54,20 @@ func (o *Outcome) Unwrap() error {
 
 // Update uses an outcome to update a job in tracker.
 func (o *Outcome) Update(tr *tracker.Tracker, state tracker.State) error {
-	if errors.Is(o, ShouldFail) {
-		return tr.SetJobError(o.job, o.detail) // TODO - is this correct?
+	var detail string
+	switch {
+	case o.detail != "-":
+		detail = o.detail
+	case o.error != nil:
+		detail = o.error.Error()
+	default:
+		detail = "-"
 	}
-	return tr.SetStatus(o.job, state, o.detail)
+
+	if errors.Is(o, ShouldFail) {
+		return tr.SetJobError(o.job, detail)
+	}
+	return tr.SetStatus(o.job, state, detail)
 }
 
 // Failure creates a failure Outcome
