@@ -187,13 +187,15 @@ func (s *Status) State() State {
 }
 
 // LastUpdate returns the most recent update detail string.
+// NOTE: update field for Failed state is the error message, so
+// the previous StateInfo is used for LastUpdate.
 func (s *Status) LastUpdate() string {
 	lsi := s.LastStateInfo()
-	if lsi.State != Failed || len(s.History) < 2 {
-		return lsi.LastUpdate
+	if lsi.State == Failed && len(s.History) > 1 {
+		lsi = &s.History[len(s.History)-2]
 	}
-	prev := s.History[len(s.History)-2]
-	return prev.LastUpdate
+	log.Printf("LastUpdate: %+v\n", lsi)
+	return lsi.LastUpdate
 }
 
 // UpdateTime returns the timestamp of the most recent update.
