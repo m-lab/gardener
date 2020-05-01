@@ -14,7 +14,7 @@ import (
 )
 
 // TODO consider rewriting to use a go/cloud/bqfake client.  This is a fair
-// bit of work, though.
+// bit of work, though.  Might be practical to improve test coverage.
 func TestStandardMonitor(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping test that uses BQ backend")
@@ -52,7 +52,7 @@ func TestStandardMonitor(t *testing.T) {
 
 	failTime := time.Now().Add(30 * time.Second)
 
-	for time.Now().Before(failTime) && (tk.NumJobs() > 2 || tk.NumFailed() < 2) {
+	for time.Now().Before(failTime) && tk.NumFailed() < 3 && (tk.NumJobs() > 2 || tk.NumFailed() < 2) {
 		time.Sleep(time.Millisecond)
 	}
 	if tk.NumFailed() != 2 {
