@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -239,6 +240,7 @@ func (tr *Tracker) SetJobError(job Job, errString string) error {
 	metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
 	metrics.StateDate.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Set(float64(job.Date.Unix()))
 
+	debug.PrintStack()
 	return tr.UpdateJob(job, status)
 }
 
