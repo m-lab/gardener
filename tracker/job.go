@@ -156,8 +156,7 @@ type StateInfo struct {
 // newStateInfo returns a properly initialized StateInfo
 func newStateInfo(state State) StateInfo {
 	now := time.Now()
-	si := StateInfo{State: state, Start: now, DetailTime: now}
-	return si
+	return StateInfo{State: state, Start: now, DetailTime: now}
 }
 
 // setDetail changes the setDetail time and detail string (if != "-").
