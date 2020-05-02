@@ -155,12 +155,9 @@ type StateInfo struct {
 }
 
 // NewStateInfo returns a properly initialized StateInfo
-func NewStateInfo(state State, detail string) StateInfo {
+func NewStateInfo(state State) StateInfo {
 	now := time.Now()
 	si := StateInfo{State: state, Start: now, LastUpdateTime: now}
-	if len(detail) > 0 && detail != "-" {
-		si.LastUpdate = detail
-	}
 	return si
 }
 
@@ -226,22 +223,21 @@ func (s *Status) StartTime() time.Time {
 }
 
 // UpdateDetail replaces the most recent StateInfo with copy with new detail.
+// It returns the previous StateInfo value.
 func (s *Status) UpdateDetail(detail string) StateInfo {
-	if detail == "-" {
-		return s.LastStateInfo()
-	}
 	result := s.LastStateInfo()
-	// The History is not deep copied, so we do copy on write
-	// to avoid race.
-	h := s.History
-	h = make([]StateInfo, len(s.History), cap(s.History))
-	copy(h, s.History)
+	if detail != "-" {
+		// The History is not deep copied, so we do copy on write
+		// to avoid race.
+		h := make([]StateInfo, len(s.History), cap(s.History))
+		copy(h, s.History)
 
-	last := len(h) - 1
-	lsi := &h[last]
-	lsi.Update(detail)
-	// Replace the entire history
-	s.History = h
+		last := len(h) - 1
+		lsi := &h[last]
+		lsi.Update(detail)
+		// Replace the entire history
+		s.History = h
+	}
 	return result
 }
 
@@ -261,7 +257,8 @@ func (s *Status) Update(state State, detail string) StateInfo {
 		return old
 	}
 	if old.State != state {
-		s.History = append(s.History, NewStateInfo(state, detail))
+		log.Println("new state", state)
+		s.History = append(s.History, NewStateInfo(state))
 	}
 	return old
 }

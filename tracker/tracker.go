@@ -208,9 +208,6 @@ func (tr *Tracker) SetStatus(job Job, newState State, detail string) error {
 	old := status.Update(newState, detail)
 	if newState != old.State {
 		log.Println(job, old, "->", newState)
-		if newState == Complete {
-			log.Println(status.History)
-		}
 
 		timeInState := time.Since(old.Start)
 		metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
