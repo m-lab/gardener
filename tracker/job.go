@@ -260,7 +260,8 @@ func (s *Status) Update(state State, detail string) StateInfo {
 		log.Println("new state", state)
 		s.History = append(s.History, NewStateInfo(state))
 		// For failure, we want to record the error in the final state, too.
-		if state == Failed {
+		// TODO - deprecate ParseError?
+		if state == Failed || state == ParseError {
 			s.UpdateDetail(detail)
 		}
 	}
