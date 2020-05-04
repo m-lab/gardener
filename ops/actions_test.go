@@ -47,6 +47,13 @@ func TestStandardMonitor(t *testing.T) {
 		tracker.ParseComplete,
 		"Parsing")
 
+	// Delete action doesn't from travis...
+	m.AddAction(tracker.Cleaning,
+		nil,
+		newStateFunc("-"),
+		tracker.Complete,
+		"Cleaning")
+
 	// The real dedup action should fail on unknown datatype.
 	go m.Watch(ctx, 50*time.Millisecond)
 
