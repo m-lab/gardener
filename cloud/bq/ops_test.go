@@ -39,7 +39,7 @@ func TestValidateQueries(t *testing.T) {
 	}
 	ctx := context.Background()
 	dataTypes := []string{"tcpinfo", "annotation", "ndt7"}
-	keys := []string{"dedup", "cleanup"} // TODO Add "preserve" query
+	keys := []string{"dedup"} // TODO Add "preserve" query
 	// Test for each datatype
 	for _, dataType := range dataTypes {
 		job := tracker.NewJob("bucket", "ndt", dataType, time.Date(2019, 3, 4, 0, 0, 0, 0, time.UTC))
@@ -62,7 +62,7 @@ func TestValidateQueries(t *testing.T) {
 			})
 		}
 		t.Run(dataType+":copy", func(t *testing.T) {
-			j, err := qp.Copy(ctx, true)
+			j, err := qp.CopyToRaw(ctx, true)
 			if err != nil {
 				t.Fatal(t.Name(), err)
 			}
@@ -70,6 +70,8 @@ func TestValidateQueries(t *testing.T) {
 			if status.Err() != nil {
 				t.Fatal(t.Name(), err)
 			}
-		})
+		},
+		// TODO - add partition delete test?
+		)
 	}
 }

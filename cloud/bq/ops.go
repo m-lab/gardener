@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 
@@ -15,11 +16,13 @@ import (
 	"github.com/m-lab/etl-gardener/tracker"
 )
 
-// Queryer provides the interface for running bigquery operations.
-type Queryer interface {
+// OpsHandler provides the interface for running bigquery operations.
+type OpsHandler interface {
 	QueryFor(key string) string
+	// TODO - maybe just make all ops explicit functions?
 	Run(ctx context.Context, key string, dryRun bool) (bqiface.Job, error)
-	Copy(ctx context.Context, dryRun bool) (bqiface.Job, error)
+	CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error)
+	DeleteTmp(ctx context.Context) error
 }
 
 // queryer is used to construct a dedup query.
@@ -37,7 +40,7 @@ type queryer struct {
 var ErrDatatypeNotSupported = errors.New("Datatype not supported")
 
 // NewQuerier creates a suitable QueryParams for a Job.
-func NewQuerier(job tracker.Job, project string) (Queryer, error) {
+func NewQuerier(job tracker.Job, project string) (OpsHandler, error) {
 	c, err := bigquery.NewClient(context.Background(), project)
 	if err != nil {
 		return nil, err
@@ -47,7 +50,7 @@ func NewQuerier(job tracker.Job, project string) (Queryer, error) {
 }
 
 // NewQuerierWithClient creates a suitable QueryParams for a Job.
-func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string) (Queryer, error) {
+func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string) (OpsHandler, error) {
 	switch job.Datatype {
 	case "annotation":
 		return &queryer{
@@ -95,8 +98,7 @@ func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string
 }
 
 var queryTemplates = map[string]*template.Template{
-	"dedup":   dedupTemplate,
-	"cleanup": cleanupTemplate,
+	"dedup": dedupTemplate,
 }
 
 // MakeQuery creates a query from a template.
@@ -138,11 +140,12 @@ func (params queryer) Run(ctx context.Context, key string, dryRun bool) (bqiface
 	return q.Run(ctx)
 }
 
-// Copy copies the tmp_ job partition to the raw_ job partition.
-func (params queryer) Copy(ctx context.Context, dryRun bool) (bqiface.Job, error) {
+// CopyToRaw copies the tmp_ job partition to the raw_ job partition.
+func (params queryer) CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error) {
 	if params.client == nil {
 		return nil, dataset.ErrNilBqClient
 	}
+	// TODO - names should be fields in queryer.
 	src := params.client.Dataset("tmp_" + params.Job.Experiment).Table(params.Job.Datatype)
 	dest := params.client.Dataset("raw_" + params.Job.Experiment).Table(params.Job.Datatype)
 
@@ -155,15 +158,15 @@ func (params queryer) Copy(ctx context.Context, dryRun bool) (bqiface.Job, error
 	return copier.Run(ctx)
 }
 
-// Dedup executes a query that deletes duplicates from the destination table.
-func (params queryer) Dedup(ctx context.Context, dryRun bool) (bqiface.Job, error) {
-	return params.Run(ctx, "dedup", dryRun)
-}
-
-// Cleanup executes a query that deletes the entire partition
-// from the tmp table.
-func (params queryer) Cleanup(ctx context.Context, dryRun bool) (bqiface.Job, error) {
-	return params.Run(ctx, "cleanup", dryRun)
+// DeleteTmp deletes the tmp table partition.
+func (params queryer) DeleteTmp(ctx context.Context) error {
+	if params.client == nil {
+		return dataset.ErrNilBqClient
+	}
+	// TODO - name should be field in queryer.
+	tmp := params.client.Dataset("tmp_" + params.Job.Experiment).Table(
+		fmt.Sprintf("%s$%s", params.Job.Datatype, params.Job.Date.Format("20060102")))
+	return tmp.Delete(ctx)
 }
 
 // TODO get the tmp_ and raw_ from the job Target?
@@ -205,11 +208,3 @@ AND NOT EXISTS (
     {{range $k, $v := .Partition}}target.{{$v}} = keep.{{$k}} AND {{end}}
     target.ParseInfo.ParseTime = keep.ParseTime
 )`))
-
-var cleanupTemplate = template.Must(template.New("").Parse(`
-#standardSQL
-# Delete all rows in a partition.
-DELETE
-FROM ` + tmpTable + `
-WHERE Date({{.TestTime}}) = "{{.Job.Date.Format "2006-01-02"}}"
-`))
