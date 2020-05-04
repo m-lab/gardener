@@ -54,7 +54,7 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 		"Copying")
 	m.AddAction(tracker.Cleaning,
 		nil,
-		cleanupFunc,
+		deleteFunc,
 		tracker.Complete,
 		"Cleaning")
 	return m, nil
@@ -92,6 +92,9 @@ func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label s
 	if status.Err() != nil {
 		err := status.Err()
 		log.Println(label, err)
+		// Copy {Location: "partition_modifications_per_column_partitioned_table.long";
+		// Message: "Quota exceeded: Your table exceeded quota for Number of partition modifications to a column partitioned table. For more information, see https://cloud.google.com/bigquery/troubleshooting-errors"; Reason: "quotaExceeded"}
+		// limited to a toal of 5,000 partition modifications per day
 		metrics.WarningCount.WithLabelValues(
 			j.Experiment, j.Datatype,
 			label+"UnknownStatusError").Inc()
@@ -150,10 +153,7 @@ func dedupFunc(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *O
 
 // TODO This is costly.  Consider using decorated table delete.
 // TODO improve test coverage?
-func cleanupFunc(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Outcome {
-	delay := time.Since(stateChangeTime).Round(time.Minute)
-
-	var bqJob bqiface.Job
+func deleteFunc(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Outcome {
 	// TODO pass in the JobWithTarget, and get the base from the target.
 	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"))
 	if err != nil {
@@ -161,36 +161,15 @@ func cleanupFunc(ctx context.Context, j tracker.Job, stateChangeTime time.Time) 
 		// This terminates this job.
 		return Failure(j, err, "-")
 	}
-	bqJob, err = qp.Run(ctx, "cleanup", false)
+	err = qp.DeleteTmp(ctx)
 	if err != nil {
 		log.Println(err)
 		// Try again soon.
 		return Retry(j, err, "-")
 	}
-	status, outcome := waitAndCheck(ctx, bqJob, j, "Cleanup")
-	if !outcome.IsDone() {
-		return outcome
-	}
 
-	var msg string
-	// Dedup job was successful.  Handle the statistics, metrics, tracker update.
-	stats := status.Statistics
-	switch details := stats.Details.(type) {
-	case *bigquery.QueryStatistics:
-		opTime := stats.EndTime.Sub(stats.StartTime)
-		metrics.QueryCostHistogram.WithLabelValues(j.Datatype, "cleanup").Observe(float64(details.SlotMillis) / 1000.0)
-		msg = fmt.Sprintf("Cleanup took %s (after %s waiting), %5.2f Slot Minutes, %d Rows affected, %d MB Processed, %d MB Billed",
-			opTime.Round(100*time.Millisecond),
-			delay,
-			float64(details.SlotMillis)/60000, details.NumDMLAffectedRows,
-			details.TotalBytesProcessed/1000000, details.TotalBytesBilled/1000000)
-		log.Println(msg)
-		log.Printf("Cleanup %s: %+v\n", j, details)
-	default:
-		log.Printf("Could not convert to QueryStatistics: %+v\n", status.Statistics.Details)
-		msg = "Could not convert Detail to QueryStatistics"
-	}
-	return Success(j, msg)
+	// TODO - add elapsed time to message.
+	return Success(j, "Successfully deleted partition")
 }
 
 // TODO improve test coverage?
@@ -207,7 +186,7 @@ func copyFunc(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Ou
 		// This terminates this job.
 		return Failure(j, err, "-")
 	}
-	bqJob, err = qp.Copy(ctx, false)
+	bqJob, err = qp.CopyToRaw(ctx, false)
 	if err != nil {
 		log.Println(err)
 		// Try again soon.
