@@ -18,9 +18,9 @@ import (
 
 // OpsHandler provides the interface for running bigquery operations.
 type OpsHandler interface {
-	QueryFor(key string) string
-	// TODO - maybe just make all ops explicit functions?
-	Run(ctx context.Context, key string, dryRun bool) (bqiface.Job, error)
+	DedupQuery() string
+
+	Dedup(ctx context.Context, dryRun bool) (bqiface.Job, error)
 	CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error)
 	DeleteTmp(ctx context.Context) error
 }
@@ -32,8 +32,8 @@ type queryer struct {
 	Date    string // Name of the partition field
 	Job     tracker.Job
 	// map key is the single field name, value is fully qualified name
-	Partition map[string]string
-	Order     string
+	PartitionKeys map[string]string
+	OrderKeys     string
 }
 
 // ErrDatatypeNotSupported is returned by Query for unsupported datatypes.
@@ -54,46 +54,44 @@ func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string
 	switch job.Datatype {
 	case "annotation":
 		return &queryer{
-			client:    client,
-			Project:   project,
-			Date:      "date",
-			Job:       job,
-			Partition: map[string]string{"id": "id"},
-			Order:     "",
+			client:        client,
+			Project:       project,
+			Date:          "date",
+			Job:           job,
+			PartitionKeys: map[string]string{"id": "id"},
+			OrderKeys:     "",
 		}, nil
 
 	case "ndt5":
 		return &queryer{
-			client:    client,
-			Project:   project,
-			Date:      "date",
-			Job:       job,
-			Partition: map[string]string{"test_id": "test_id"},
-			Order:     "",
+			client:        client,
+			Project:       project,
+			Date:          "log_time",
+			Job:           job,
+			PartitionKeys: map[string]string{"test_id": "test_id"},
+			OrderKeys:     "",
 		}, nil
 
 	case "ndt7":
 		return &queryer{
-			client:    client,
-			Project:   project,
-			Date:      "date",
-			Job:       job,
-			Partition: map[string]string{"id": "id"},
-			Order:     "",
+			client:        client,
+			Project:       project,
+			Date:          "date",
+			Job:           job,
+			PartitionKeys: map[string]string{"id": "id"},
+			OrderKeys:     "",
 		}, nil
 
-		// TODO: enable tcpinfo again once it supports standard columns.
-	/*case "tcpinfo":
-	return &queryer{
-		client:    client,
-		Project:   project,
-		Date:      "DATE(TestTime)",
-		Job:       job,
-		Partition: map[string]string{"uuid": "uuid", "Timestamp": "FinalSnapshot.Timestamp"},
-		// TODO TaskFileName should be ArchiveURL once we update the schema.
-		Order: "ARRAY_LENGTH(Snapshots) DESC, ParseInfo.TaskFileName, ",
-	}, nil
-	*/
+//	case "tcpinfo":
+//		return &queryer{
+//			client:        client,
+//			Project:       project,
+//			Date:          "DATE(TestTime)",
+//			Job:           job,
+//			PartitionKeys: map[string]string{"uuid": "uuid", "Timestamp": "FinalSnapshot.Timestamp"},
+//			// TODO TaskFileName should be ArchiveURL once we update the schema.
+//			OrderKeys: "ARRAY_LENGTH(Snapshots) DESC, ParseInfo.TaskFileName, ",
+//		}, nil
 	default:
 		return nil, ErrDatatypeNotSupported
 	}
@@ -113,18 +111,14 @@ func (params queryer) makeQuery(t *template.Template) string {
 	return out.String()
 }
 
-// QueryFor returns the appropriate query in string form.
-func (params queryer) QueryFor(key string) string {
-	t, ok := queryTemplates[key]
-	if !ok {
-		return ""
-	}
-	return params.makeQuery(t)
+// DedupQuery returns the appropriate query in string form.
+func (params queryer) DedupQuery() string {
+	return params.makeQuery(dedupTemplate)
 }
 
 // Run executes a query constructed from a template.  It returns the bqiface.Job.
-func (params queryer) Run(ctx context.Context, key string, dryRun bool) (bqiface.Job, error) {
-	qs := params.QueryFor(key)
+func (params queryer) Dedup(ctx context.Context, dryRun bool) (bqiface.Job, error) {
+	qs := params.DedupQuery()
 	if len(qs) == 0 {
 		return nil, dataset.ErrNilQuery
 	}
@@ -190,11 +184,11 @@ AND NOT EXISTS (
   WITH keep AS (
   SELECT * EXCEPT(row_number) FROM (
     SELECT
-      {{range $k, $v := .Partition}}{{$v}}, {{end}}
+      {{range $k, $v := .PartitionKeys}}{{$v}}, {{end}}
 	  parser.Time,
       ROW_NUMBER() OVER (
-        PARTITION BY {{range $k, $v := .Partition}}{{$v}}, {{end}}date
-        ORDER BY {{.Order}} parser.Time DESC
+        PARTITION BY {{range $k, $v := .PartitionKeys}}{{$v}}, {{end}}date
+        ORDER BY {{.OrderKeys}} parser.Time DESC
       ) row_number
       FROM (
         SELECT * FROM ` + tmpTable + `
@@ -207,6 +201,6 @@ AND NOT EXISTS (
   # This matches against the keep table based on keys.  Sufficient select keys must be
   # used to distinguish the preferred row from the others.
   WHERE
-    {{range $k, $v := .Partition}}target.{{$v}} = keep.{{$k}} AND {{end}}
+    {{range $k, $v := .PartitionKeys}}target.{{$v}} = keep.{{$k}} AND {{end}}
     target.parser.Time = keep.Time
 )`))
