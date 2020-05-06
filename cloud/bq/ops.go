@@ -162,6 +162,7 @@ func (params queryer) DeleteTmp(ctx context.Context) error {
 	// TODO - name should be field in queryer.
 	tmp := params.client.Dataset("tmp_" + params.Job.Experiment).Table(
 		fmt.Sprintf("%s$%s", params.Job.Datatype, params.Job.Date.Format("20060102")))
+	log.Println("Deleting", tmp.FullyQualifiedName())
 	return tmp.Delete(ctx)
 }
 
