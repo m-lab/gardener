@@ -142,8 +142,10 @@ func (params queryer) CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, 
 		return nil, dataset.ErrNilBqClient
 	}
 	// TODO - names should be fields in queryer.
-	src := params.client.Dataset("tmp_" + params.Job.Experiment).Table(params.Job.Datatype)
-	dest := params.client.Dataset("raw_" + params.Job.Experiment).Table(params.Job.Datatype)
+	src := params.client.Dataset("tmp_" + params.Job.Experiment).
+		Table(params.Job.Datatype + "$" + params.Job.Date.Format("20060102"))
+	dest := params.client.Dataset("raw_" + params.Job.Experiment).
+		Table(params.Job.Datatype + "$" + params.Job.Date.Format("20060102"))
 
 	copier := dest.CopierFrom(src)
 	config := bqiface.CopyConfig{}
