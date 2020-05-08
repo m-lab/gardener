@@ -55,17 +55,5 @@ func TestValidateQueries(t *testing.T) {
 				t.Fatal(t.Name(), err, qp.DedupQuery())
 			}
 		})
-		t.Run(dataType+":copy", func(t *testing.T) {
-			j, err := qp.CopyToRaw(ctx, true)
-			if err != nil {
-				t.Fatal(t.Name(), err)
-			}
-			status := j.LastStatus()
-			if status.Err() != nil {
-				t.Fatal(t.Name(), status.Err())
-			}
-		},
-		// TODO - add partition delete test?
-		)
 	}
 }
