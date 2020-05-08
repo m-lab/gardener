@@ -264,7 +264,9 @@ func (tr *Tracker) GetState() (JobMap, Job, time.Time) {
 			(s.isDone() && time.Since(updateTime) > tr.cleanupDelay) {
 			// Remove any obsolete jobs.
 			metrics.TasksInFlight.WithLabelValues(j.Experiment, j.Datatype).Dec()
-			log.Println("Deleting stale job", j, time.Since(updateTime), tr.cleanupDelay)
+			if !s.isDone() {
+				log.Println("Deleting stale job", j, time.Since(updateTime), tr.cleanupDelay)
+			}
 			tr.lastModified = time.Now()
 			delete(tr.jobs, j)
 		} else {
