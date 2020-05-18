@@ -195,11 +195,12 @@ func GetTableDetail(ctx context.Context, dsExt *dataset.Dataset, table bqiface.T
 	// TODO - find a better way to do this.
 	// https://github.com/m-lab/etl-gardener/issues/158
 	query := legacyQuery
+	log.Println(parts[0])
 	if parts[0] == "tcpinfo" {
 		query = tcpinfoQuery
 	} else if (parts[0] == "ndt5") || (parts[0] == "ndt7") {
 		query = resultNDTQuery
-	} else if parts[0] == "traceroute" {
+	} else if strings.HasPrefix(parts[0], "traceroute") {
 		query = tracerouteQuery
 	}
 	err := dsExt.QueryAndParse(ctx, query, &detail)

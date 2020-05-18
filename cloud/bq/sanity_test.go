@@ -3,7 +3,6 @@ package bq
 import (
 	"context"
 	"log"
-	"strings"
 	"testing"
 	"time"
 
@@ -61,22 +60,17 @@ func Test_getTableParts(t *testing.T) {
 
 func TestSanityCheckAndCopy(t *testing.T) {
 	ctx := context.Background()
-	ds, err := dataset.NewDataset(ctx, "project", "dataset")
+	ds, err := dataset.NewDataset(ctx, "mlab-testing", "batch")
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := ds.Table("foo_19990101")
-	dest := ds.Table("foo$19990101")
+	src := ds.Table("traceroute_20200211")
+	dest := ds.Table("traceroute$20200211")
 	srcAt := NewAnnotatedTable(src, &ds)
 	destAt := NewAnnotatedTable(dest, &ds)
 
 	err = SanityCheckAndCopy(ctx, srcAt, destAt)
-	if err == nil {
-		t.Fatal("Should have 404 error")
-	}
-	if !strings.HasPrefix(err.Error(), "googleapi: Error 404") {
-		t.Fatal(err)
-	}
+	t.Error(err)
 }
 
 // This defines a Dataset that returns a Table, that returns a canned Metadata.
