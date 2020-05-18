@@ -13,9 +13,7 @@ sources:
   experiment: ndt
   datatype: ndt7
   target: tmp_ndt.ndt7
-  # filter: .*-mlab[12]-.* # Process only mlab1 and mlab2.
 - bucket: archive-measurement-lab
   experiment: ndt
-  datatype: tcpinfo
-  filter: .*T[0-9]{6}\.0[02468].*Z.* # Process only 1/20 of data.
-  target: tmp_ndt.tcpinfo
+  datatype: ndt5
+  target: tmp_ndt.ndt5
