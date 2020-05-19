@@ -109,7 +109,7 @@ func (th *TaskHandler) StartTask(ctx context.Context, t state.Task) {
 	// go routine, we need to avoid closing the taskQueues channel, which
 	// could then cause panics.
 	doneWithQueue := func() {
-		log.Println("Returning", t.Queue)
+		//log.Println("Returning", t.Queue)
 		th.taskQueues <- t.Queue
 	}
 	go t.Process(ctx, th.exec, doneWithQueue, th.Terminator)
@@ -188,7 +188,7 @@ func (th *TaskHandler) waitForPreviousTask(ctx context.Context, t state.Task) er
 //   No queue is allocated until #1 is satisfied.  While waiting for either condition,
 //   the termination notice is also respected, causing ErrTerminating to be returned.
 func (th *TaskHandler) AddTask(ctx context.Context, prefix string) error {
-	log.Println("Waiting for a queue")
+	// log.Println("Waiting for a queue")
 	t, err := state.NewTask(th.expName, prefix, "No queue yet", th.saver)
 	if err != nil {
 		log.Println(err)
