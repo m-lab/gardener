@@ -6,7 +6,9 @@ WORKDIR /go/src/github.com/m-lab/etl-gardener
 COPY . .
 
 # Get the requirements and put the produced binaries in /go/bin
-RUN go get -v ./...
+# Try twice, because sometimes go get fails for transient reasons
+RUN go get -v ./... || go get -v ./...
+
 RUN go install \
       -v \
       -ldflags "-X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h)" \
