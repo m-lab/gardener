@@ -224,6 +224,24 @@ AND NOT EXISTS (
     target.ParseInfo.ParseTime = keep.ParseTime
 )`))
 
+// Template for restoring any missing rows from raw_ndt to tmp_ndt
+// Needs unique rowID.  This will eventually be "id"
+var restoreTemplate = template.Must(template.New("").Parse(`
+#standardSQL
+# Restore any rows in raw_ndt missing from tmp_ndt
+#standardSQL
+INSERT INTO ` + tmpTable + `
+
+SELECT *
+FROM ` + rawTable + `
+WHERE Date({{.TestTime}}) = "{{.Job.Date.Format "2006-01-02"}}"
+AND test_id NOT IN (
+  SELECT test_id  
+  FROM ` + tmpTable + `
+  WHERE Date({{.TestTime}}) = "{{.Job.Date.Format "2006-01-02"}}"
+)`))
+
+// This is used to allow using bigquery.Copier as a bqiface.Copier.  YUCK.
 type xRowIterator struct {
 	i *bigquery.RowIterator
 	bqiface.RowIterator
