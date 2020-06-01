@@ -21,7 +21,7 @@ import (
 )
 
 func newStateFunc(detail string) ActionFunc {
-	return func(ctx context.Context, j tracker.Job) *Outcome {
+	return func(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Outcome {
 		return Success(j, detail)
 	}
 }
@@ -52,7 +52,7 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 }
 
 // Waits for bqjob to complete, handles backoff and job updates.
-// Returns non-nil status if successful.
+// If Outcome is Success, status will be non-nil, and non-error.
 func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label string) (*bigquery.JobStatus, *Outcome) {
 	status, err := bqJob.Wait(ctx)
 	if err != nil {
@@ -94,11 +94,10 @@ func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label s
 }
 
 // TODO improve test coverage?
-func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
-	start := time.Now()
+func dedupFunc(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Outcome {
 	// This is the delay since entering the dedup state, due to monitor delay
 	// and retries.
-	// delay := time.Since(s.LastStateChangeTime()).Round(time.Minute)
+	delay := time.Since(stateChangeTime).Round(time.Minute)
 
 	var bqJob bqiface.Job
 	var msg string
@@ -125,12 +124,14 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 	}
 
 	// Dedup job was successful.  Handle the statistics, metrics, tracker update.
-	switch details := status.Statistics.Details.(type) {
+	stats := status.Statistics
+	switch details := stats.Details.(type) {
 	case *bigquery.QueryStatistics:
+		opTime := stats.EndTime.Sub(stats.StartTime)
 		metrics.QueryCostHistogram.WithLabelValues(j.Datatype, "dedup").Observe(float64(details.SlotMillis) / 1000.0)
-		msg = fmt.Sprintf("Dedup took %s (after xxx waiting), %5.2f Slot Minutes, %d Rows affected, %d MB Processed, %d MB Billed",
-			time.Since(start).Round(100*time.Millisecond).String(),
-			//delay,
+		msg = fmt.Sprintf("Dedup took %s (after %v waiting), %5.2f Slot Minutes, %d Rows affected, %d MB Processed, %d MB Billed",
+			opTime.Round(100*time.Millisecond),
+			delay,
 			float64(details.SlotMillis)/60000, details.NumDMLAffectedRows,
 			details.TotalBytesProcessed/1000000, details.TotalBytesBilled/1000000)
 		log.Println(msg)
