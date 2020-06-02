@@ -100,7 +100,7 @@ func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label s
 			label+"UnknownStatusError").Inc()
 
 		// This will terminate this job.
-		return status, Failure(j, err, "unknown error")
+		return status, Failure(j, err, "-") // The error will be used for status.
 	}
 	return status, Success(j, "-")
 }
