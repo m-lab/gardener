@@ -157,10 +157,10 @@ func (params queryer) CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, 
 		Table(params.Job.Datatype + "$" + params.Job.Date.Format("20060102"))
 
 	if m, err := src.Metadata(ctx); err == nil {
-		log.Printf("%+v\n", m)
+		log.Printf("Source %s: %+v\n", src.FullyQualifiedName(), m)
 	}
 	if m, err := dest.Metadata(ctx); err == nil {
-		log.Printf("%+v\n", m)
+		log.Printf("Dest %s: %+v\n", dest.FullyQualifiedName(), m)
 	}
 
 	copier := dest.CopierFrom(src)
