@@ -191,5 +191,10 @@ func NewJobService(tk *tracker.Tracker, startDate time.Time,
 
 	// Ok to start here.  If there are repeated jobs, the job-service will skip
 	// them.  If they are already finished, then ok to repeat them, though a little inefficient.
-	return &Service{tracker: tk, startDate: startDate, date: resume, yesterday: yesterday, jobSpecs: specs}, nil
+	return &Service{
+		tracker:   tk,
+		startDate: startDate,
+		date:      resume,
+		yesterday: yesterday,
+		jobSpecs:  specs}, nil
 }
