@@ -14,8 +14,8 @@ import (
 func TestTemplate(t *testing.T) {
 	job := tracker.NewJob("bucket", "ndt", "tcpinfo", time.Date(2019, 3, 4, 0, 0, 0, 0, time.UTC))
 	q, err := bq.NewQuerier(job, "fake-project")
-	rtx.Must(err, "dedup.Query failed")
-	qs := q.QueryFor("dedup")
+	rtx.Must(err, "NewQuerier failed")
+	qs := q.DedupQuery()
 	if !strings.Contains(qs, "uuid") {
 		t.Error("query should contain keep.uuid:\n", q)
 	}
@@ -39,7 +39,6 @@ func TestValidateQueries(t *testing.T) {
 	}
 	ctx := context.Background()
 	dataTypes := []string{"tcpinfo", "annotation", "ndt7"}
-	keys := []string{"dedup", "cleanup"} // TODO Add "preserve" query
 	// Test for each datatype
 	for _, dataType := range dataTypes {
 		job := tracker.NewJob("bucket", "ndt", dataType, time.Date(2019, 3, 4, 0, 0, 0, 0, time.UTC))
@@ -47,28 +46,15 @@ func TestValidateQueries(t *testing.T) {
 		if err != nil {
 			t.Fatal(dataType, err)
 		}
-		// Test each query key
-		for _, key := range keys {
-			t.Run(dataType+":"+key, func(t *testing.T) {
-				t.Log(t.Name())
-				j, err := qp.Run(ctx, key, true)
-				if err != nil {
-					t.Fatal(t.Name(), err, qp.QueryFor(key))
-				}
-				status := j.LastStatus()
-				if status.Err() != nil {
-					t.Fatal(t.Name(), err, qp.QueryFor(key))
-				}
-			})
-		}
-		t.Run(dataType+":copy", func(t *testing.T) {
-			j, err := qp.Copy(ctx, true)
+		t.Run(dataType+":dedup", func(t *testing.T) {
+			t.Log(t.Name())
+			j, err := qp.Dedup(ctx, true)
 			if err != nil {
-				t.Fatal(t.Name(), err)
+				t.Fatal(t.Name(), err, qp.DedupQuery())
 			}
 			status := j.LastStatus()
 			if status.Err() != nil {
-				t.Fatal(t.Name(), err)
+				t.Fatal(t.Name(), err, qp.DedupQuery())
 			}
 		})
 	}
