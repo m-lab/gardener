@@ -42,7 +42,7 @@ func stabilize(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *O
 	}
 	if time.Since(stateChangeTime) < time.Hour {
 		log.Println("retry")
-		return Retry(j, errors.New("retry"), "stabilizing")
+		return Retry(j, errors.New("retry"), stateChangeTime.Format("stabilizing since 15:04:05"))
 	}
 	return Success(j, "done delay")
 }
