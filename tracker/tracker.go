@@ -164,7 +164,7 @@ func (tr *Tracker) AddJob(job Job) error {
 	// ignore AddJob for yesterday, so that we don't lose track of
 	// the resume date.
 	// This is a bit hacky mechanism to do that.
-	if time.Since(job.Date) > 48*time.Hour {
+	if time.Since(job.Date) > 36*time.Hour {
 		tr.lastJob = job
 	}
 

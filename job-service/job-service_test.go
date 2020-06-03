@@ -113,7 +113,7 @@ func TestJobHandler(t *testing.T) {
 func TestResume(t *testing.T) {
 	// This allows predictable behavior w.r.t. yesterday processing.
 	monkey.Patch(time.Now, func() time.Time {
-		return time.Date(2011, 2, 6, 1, 2, 3, 4, time.UTC)
+		return time.Date(2011, 2, 10, 1, 2, 3, 4, time.UTC)
 	})
 	defer monkey.Unpatch(time.Now)
 
