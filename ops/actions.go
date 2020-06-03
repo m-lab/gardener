@@ -2,6 +2,8 @@ package ops
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,6 +27,26 @@ func newStateFunc(detail string) ActionFunc {
 	}
 }
 
+func wait(ctx context.Context, job tracker.Job) bool {
+	if flag.Lookup("test.v") == nil {
+		log.Println("Sleeping")
+		time.Sleep(time.Hour) // terrible hack!
+	}
+	return true
+}
+
+func stabilize(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Outcome {
+	log.Println("Stabilize")
+	if flag.Lookup("test.v") != nil {
+		return Success(j, "no delay for test")
+	}
+	if time.Since(stateChangeTime) < time.Hour {
+		log.Println("retry")
+		return Retry(j, errors.New("retry"), "stabilizing")
+	}
+	return Success(j, "done delay")
+}
+
 // NewStandardMonitor creates the standard monitor that handles several state transitions.
 func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.Tracker) (*Monitor, error) {
 	m, err := NewMonitor(ctx, config, tk)
@@ -33,13 +55,13 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 	}
 	m.AddAction(tracker.ParseComplete,
 		nil,
-		newStateFunc("-"),
-		tracker.Deduplicating,
-		"Changing to Deduplicating")
+		newStateFunc("stabilizing"),
+		tracker.Stabilizing,
+		"Changing to Stabilizing")
 	// Hack to handle old jobs from previous gardener implementations
 	m.AddAction(tracker.Stabilizing,
 		nil,
-		newStateFunc("-"),
+		stabilize,
 		tracker.Deduplicating,
 		"Changing to Deduplicating")
 	m.AddAction(tracker.Deduplicating,
