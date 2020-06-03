@@ -146,15 +146,18 @@ func (tr *Tracker) GetStatus(job Job) (Status, error) {
 }
 
 // AddJob adds a new job to the Tracker.
-// May return ErrJobAlreadyExists if job already exists.
+// May return ErrJobAlreadyExists if job is in flight already.
 func (tr *Tracker) AddJob(job Job) error {
 	status := NewStatus()
 
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
-	_, ok := tr.jobs[job]
+	s, ok := tr.jobs[job]
 	if ok {
-		return ErrJobAlreadyExists
+		if !s.isDone() {
+			return ErrJobAlreadyExists
+		}
+		log.Println("Restarting completed job", job)
 	}
 
 	// With the introduction of yesterday processing, we need to
