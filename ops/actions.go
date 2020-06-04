@@ -36,12 +36,12 @@ func wait(ctx context.Context, job tracker.Job) bool {
 }
 
 func stabilize(ctx context.Context, j tracker.Job, stateChangeTime time.Time) *Outcome {
-	log.Println("Stabilize")
 	if flag.Lookup("test.v") != nil {
 		return Success(j, "no delay for test")
 	}
 	if time.Since(stateChangeTime) < time.Hour {
-		log.Println(stateChangeTime.Format("stabilizing since 15:04:05"))
+		log.Println(j, stateChangeTime.Format("stabilizing since 15:04:05"))
+		// TODO - Debug why this Detail isn't showing up in status page.
 		return Retry(j, errors.New("retry"), stateChangeTime.Format("stabilizing since 15:04:05"))
 	}
 	return Success(j, "done delay")
