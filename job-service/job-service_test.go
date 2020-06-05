@@ -154,13 +154,14 @@ func TestResume(t *testing.T) {
 
 // Implements persistence.Saver, for test injection.
 type FakeSaver struct {
-	Date time.Time
+	Current   time.Time
+	Yesterday time.Time
 }
 
 func (fs *FakeSaver) Save(ctx context.Context, o persistence.StateObject) error {
 	switch svc := o.(type) {
 	case *job.Service:
-		fs.Date = svc.Date
+		fs.Current = svc.Date
 	default:
 		log.Fatal("Not implemented")
 	}
@@ -172,7 +173,11 @@ func (fs *FakeSaver) Delete(ctx context.Context, o persistence.StateObject) erro
 func (fs *FakeSaver) Fetch(ctx context.Context, o persistence.StateObject) error {
 	switch to := o.(type) {
 	case *job.Service:
-		to.Date = fs.Date
+		to.Date = fs.Current
+	case *job.YesterdaySource:
+		to.Date = fs.Yesterday
+		//	time.Now().UTC().Truncate(24 * time.Hour)
+		time.Date(2011, 2, 16, 0, 0, 0, 0, time.UTC)
 	default:
 		log.Fatal("Not implemented")
 	}
@@ -186,6 +191,11 @@ func assertStateObject(so persistence.StateObject) {
 func TestResumeFromSaver(t *testing.T) {
 	ctx := context.Background()
 
+	// This allows predictable behavior from time.Since in the advanceDate function.
+	monkey.Patch(time.Now, func() time.Time {
+		return time.Date(2011, 2, 16, 1, 2, 3, 4, time.UTC)
+	})
+
 	start := time.Date(2011, 2, 3, 0, 0, 0, 0, time.UTC)
 	sources := []config.SourceConfig{
 		{Bucket: "fake-bucket", Experiment: "ndt", Datatype: "ndt5", Target: "tmp_ndt.ndt5"},
@@ -193,7 +203,7 @@ func TestResumeFromSaver(t *testing.T) {
 	}
 	// FakeSaver that will return 2011/02/13 as resume date.
 	resume := time.Date(2011, 2, 13, 0, 0, 0, 0, time.UTC)
-	fs := FakeSaver{Date: resume}
+	fs := FakeSaver{Current: resume}
 	svc, err := job.NewJobService(&NullTracker{}, start, "fake-bucket", sources, &fs)
 	must(t, err)
 	// NextJob should return a job with date provided by FakeSaver.
@@ -206,8 +216,8 @@ func TestResumeFromSaver(t *testing.T) {
 	// saving the next date to process, which is 20110214.
 	j = svc.NextJob(ctx)
 	// Check that we see the new date in the FakeSaver
-	if fs.Date != resume.AddDate(0, 0, 1) {
-		t.Error("Expected", resume.AddDate(0, 0, 1), "got", fs.Date)
+	if fs.Current != resume.AddDate(0, 0, 1) {
+		t.Error("Expected", resume.AddDate(0, 0, 1), "got", fs.Current)
 	}
 }
 
