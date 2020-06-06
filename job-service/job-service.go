@@ -40,7 +40,7 @@ type YesterdaySource struct {
 
 // nextJob returns a yesterday Job if appropriate
 // Not thread-safe.
-func (y *YesterdaySource) nextJob() *tracker.JobWithTarget {
+func (y *YesterdaySource) nextJob(ctx context.Context) *tracker.JobWithTarget {
 	// Defer until "delay" after midnight next day.
 	if time.Since(y.Date) < 24*time.Hour+y.delay {
 		return nil
@@ -57,21 +57,25 @@ func (y *YesterdaySource) nextJob() *tracker.JobWithTarget {
 	if y.nextIndex >= len(y.jobSpecs) {
 		y.nextIndex = 0
 		y.Date = y.Date.AddDate(0, 0, 1).UTC().Truncate(24 * time.Hour)
-		if y.saver != nil {
-			ctx, cf := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cf()
-			y.saver.Save(ctx, y)
-		}
+
+		ctx, cf := context.WithTimeout(ctx, 5*time.Second)
+		defer cf()
+		log.Println("Saving", y)
+		y.saver.Save(ctx, y)
 	}
 
 	return &job
 }
 
-func initYesterday(saver persistence.Saver, delay time.Duration, specs []tracker.JobWithTarget) *YesterdaySource {
+func initYesterday(saver persistence.Saver, delay time.Duration, specs []tracker.JobWithTarget) (*YesterdaySource, error) {
+	if saver == nil {
+		return nil, ErrNilParameter
+	}
 	// This is the fallback start date.
 	date := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -1)
 
 	src := YesterdaySource{
+		saver:     saver,
 		jobSpecs:  specs,
 		Date:      date,
 		delay:     delay,
@@ -79,17 +83,15 @@ func initYesterday(saver persistence.Saver, delay time.Duration, specs []tracker
 	}
 
 	// Recover the date from datastore.
-	if saver != nil {
-		ctx, cf := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cf()
-		err := saver.Fetch(ctx, &src)
-		if err != nil {
-			log.Println(err)
-		}
+	ctx, cf := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cf()
+	err := saver.Fetch(ctx, &src)
+	if err != nil {
+		log.Println(err)
 	}
 
 	log.Println("Yesterday starting at", src.Date)
-	return &src
+	return &src, nil
 }
 
 // GetName implements StateObject.GetName
@@ -144,7 +146,7 @@ func (svc *Service) NextJob(ctx context.Context) tracker.JobWithTarget {
 	defer svc.lock.Unlock()
 
 	// Check whether there is yesterday work to do.
-	if j := svc.yesterday.nextJob(); j != nil {
+	if j := svc.yesterday.nextJob(ctx); j != nil {
 		log.Println("Yesterday job:", j.Job)
 		return *j
 	}
@@ -259,7 +261,10 @@ func NewJobService(tk jobAdder, startDate time.Time,
 		log.Fatal("No jobs specified")
 	}
 
-	yesterday := initYesterday(saver, 6*time.Hour, specs)
+	yesterday, err := initYesterday(saver, 6*time.Hour, specs)
+	if err != nil {
+		return nil, err
+	}
 	svc := Service{
 		jobAdder:  tk,
 		saver:     saver,
