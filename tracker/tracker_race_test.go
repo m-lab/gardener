@@ -79,7 +79,7 @@ func TestConcurrentUpdates(t *testing.T) {
 		restore, err := tracker.InitTracker(context.Background(), client, dsKey, 0, 0, 0)
 		must(t, err)
 
-		status, _, _ := restore.GetState()
+		status, _ := restore.GetState()
 		for k, v := range status {
 			log.Println(k, v)
 		}

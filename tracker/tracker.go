@@ -28,6 +28,7 @@ import (
 // Tracker keeps track of all the jobs in flight.
 // Only tracker functions should access any of the fields.
 type Tracker struct {
+	// TODO - should have a saver
 	client dsiface.Client
 	dsKey  *datastore.Key
 	ticker *time.Ticker
@@ -36,9 +37,8 @@ type Tracker struct {
 	lock         sync.Mutex
 	lastModified time.Time
 
-	// These are the stored values.
-	lastJob Job    // The last job that was added/initialized.
-	jobs    JobMap // Map from Job to Status.
+	// The JobMap is persisted.
+	jobs JobMap // Map from Job to Status.
 
 	// Time after which stale job should be ignored or replaced.
 	expirationTime time.Duration
@@ -53,7 +53,7 @@ func InitTracker(
 	client dsiface.Client, key *datastore.Key,
 	saveInterval time.Duration, expirationTime time.Duration, cleanupDelay time.Duration) (*Tracker, error) {
 
-	jobMap, lastJob, err := loadJobMap(ctx, client, key)
+	jobMap, err := loadJobMap(ctx, client, key)
 	if err != nil {
 		log.Println(err, key)
 		jobMap = make(JobMap, 100)
@@ -64,7 +64,7 @@ func InitTracker(
 	}
 	t := Tracker{
 		client: client, dsKey: key, lastModified: time.Now(),
-		lastJob: lastJob, jobs: jobMap,
+		jobs:           jobMap,
 		expirationTime: expirationTime, cleanupDelay: cleanupDelay}
 	if client != nil && saveInterval > 0 {
 		t.saveEvery(saveInterval)
@@ -82,7 +82,7 @@ func (tr *Tracker) NumJobs() int {
 
 // NumFailed returns the number of failed jobs.
 func (tr *Tracker) NumFailed() int {
-	jobs, _, _ := tr.GetState()
+	jobs, _ := tr.GetState()
 	counts := make(map[State]int, 20)
 
 	for _, s := range jobs {
@@ -94,7 +94,7 @@ func (tr *Tracker) NumFailed() int {
 // Sync snapshots the full job state and saves it to the datastore client IFF it has changed.
 // Returns time last saved, which may or may not be updated.
 func (tr *Tracker) Sync(lastSave time.Time) (time.Time, error) {
-	jobs, lastInit, lastMod := tr.GetState()
+	jobs, lastMod := tr.GetState()
 	if lastMod.Before(lastSave) {
 		logx.Debug.Println("Skipping save", lastMod, lastSave)
 		return lastSave, nil
@@ -107,7 +107,7 @@ func (tr *Tracker) Sync(lastSave time.Time) (time.Time, error) {
 
 	// Save the full state.
 	lastTry := time.Now()
-	state := saverStruct{time.Now(), lastInit, jsonJobs}
+	state := saverStruct{time.Now(), Job{}, jsonJobs}
 	ctx, cf := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cf()
 	_, err = tr.client.Put(ctx, tr.dsKey, &state)
@@ -155,7 +155,6 @@ func (tr *Tracker) AddJob(job Job) error {
 		return ErrJobAlreadyExists
 	}
 
-	tr.lastJob = job
 	tr.lastModified = time.Now()
 	metrics.StartedCount.WithLabelValues(job.Experiment, job.Datatype).Inc()
 	// TODO - should call this JobsInFlight, to avoid confusion with Tasks in parser.
@@ -255,7 +254,7 @@ func (tr *Tracker) SetJobError(job Job, errString string) error {
 
 // GetState returns the full job map, last initialized Job, and last mod time.
 // It also cleans up any expired jobs from the tracker.
-func (tr *Tracker) GetState() (JobMap, Job, time.Time) {
+func (tr *Tracker) GetState() (JobMap, time.Time) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	m := make(JobMap, len(tr.jobs))
@@ -272,7 +271,7 @@ func (tr *Tracker) GetState() (JobMap, Job, time.Time) {
 			m[j] = s
 		}
 	}
-	return m, tr.lastJob, tr.lastModified
+	return m, tr.lastModified
 }
 
 // WriteHTMLStatusTo writes out the status of all jobs to the html writer.
@@ -280,14 +279,9 @@ func (tr *Tracker) WriteHTMLStatusTo(ctx context.Context, w io.Writer) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// TODO - add the lastInit job.
-	jobs, _, _ := tr.GetState()
+	jobs, _ := tr.GetState()
 
 	fmt.Fprint(w, "<div>Tracker State</div>\n")
 
 	return jobs.WriteHTML(w)
-}
-
-// LastJob returns the last Job successfully added with AddJob
-func (tr *Tracker) LastJob() Job {
-	return tr.lastJob
 }
