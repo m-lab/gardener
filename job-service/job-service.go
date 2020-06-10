@@ -23,7 +23,6 @@ var ErrNilParameter = errors.New("nil parameter not allowed")
 
 type jobAdder interface {
 	AddJob(job tracker.Job) error
-	LastJob() tracker.Job // temporary
 }
 
 // YesterdaySource provides pending jobs for yesterday's data.
@@ -202,9 +201,8 @@ func (svc *Service) JobHandler(resp http.ResponseWriter, req *http.Request) {
 // Recover the processing date.
 // Not thread-safe - should be called before activating service.
 func (svc *Service) recoverDate(ctx context.Context) {
-	// Default to tracker.LastJob date.
-	// Deprecated
-	svc.Date = svc.jobAdder.LastJob().Date
+	// Default to startDate
+	svc.Date = svc.startDate
 
 	// try to recover date from saver.
 	ctx, cf := context.WithTimeout(ctx, 5*time.Second)

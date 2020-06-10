@@ -135,37 +135,6 @@ func TestJobHandler(t *testing.T) {
 	}
 }
 
-func TestResume(t *testing.T) {
-	// Fake time will avoid yesterday trigger.
-	now := time.Date(2011, 2, 16, 1, 2, 3, 4, time.UTC)
-	monkey.Patch(time.Now, func() time.Time {
-		return now
-	})
-	defer monkey.Unpatch(time.Now)
-
-	ctx := context.Background()
-
-	start := time.Date(2011, 2, 3, 0, 0, 0, 0, time.UTC)
-	tk, err := tracker.InitTracker(context.Background(), nil, nil, 0, 0, 0) // Only using jobmap.
-	if err != nil {
-		t.Fatal(err)
-	}
-	lastJobDate := start.AddDate(0, 0, 3)
-	last := tracker.NewJob("fake-bucket", "ndt", "ndt5", lastJobDate)
-	tk.AddJob(last)
-
-	sources := []config.SourceConfig{
-		{Bucket: "fake-bucket", Experiment: "ndt", Datatype: "ndt5", Target: "tmp_ndt.ndt5"},
-		{Bucket: "fake-bucket", Experiment: "ndt", Datatype: "tcpinfo", Target: "tmp_ndt.tcpinfo"},
-	}
-	svc, err := job.NewJobService(tk, start, "fake-bucket", sources, &NullSaver{})
-	must(t, err)
-	j := svc.NextJob(ctx)
-	if j.Date != last.Date {
-		t.Error(j, last)
-	}
-}
-
 // Implements persistence.Saver, for test injection.
 type FakeSaver struct {
 	Current   time.Time

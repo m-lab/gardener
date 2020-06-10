@@ -134,7 +134,7 @@ func TestTrackerAddDelete(t *testing.T) {
 	completeJobs(t, tk, "100Jobs", "type", numJobs)
 
 	// This tests proper behavior of cleanup with cleanupDelay.
-	jobs, _, _ := tk.GetState()
+	jobs, _ := tk.GetState()
 	if len(jobs) < numJobs {
 		t.Error("Too few jobs:", len(jobs), "<", numJobs)
 	}

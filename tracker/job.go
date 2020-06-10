@@ -408,7 +408,8 @@ func (jobs JobMap) WriteHTML(w io.Writer) error {
 // saverStruct is used only for saving and loading from datastore.
 type saverStruct struct {
 	SaveTime time.Time
-	LastInit Job
+	// Deprecated
+	LastInit Job `datastore:"-"`
 	// Jobs is encoded as json, because datastore doesn't handle maps.
 	Jobs []byte `datastore:",noindex"`
 }
@@ -424,10 +425,10 @@ func loadFromDatastore(ctx context.Context, client dsiface.Client, key *datastor
 }
 
 // loadJobMap loads the persisted map of jobs in flight.
-func loadJobMap(ctx context.Context, client dsiface.Client, key *datastore.Key) (JobMap, Job, error) {
+func loadJobMap(ctx context.Context, client dsiface.Client, key *datastore.Key) (JobMap, error) {
 	state, err := loadFromDatastore(ctx, client, key)
 	if err != nil {
-		return nil, Job{}, err
+		return nil, err
 	}
 	log.Println("Last save:", state.SaveTime.Format("01/02T15:04"))
 	log.Println(string(state.Jobs))
@@ -443,6 +444,6 @@ func loadJobMap(ctx context.Context, client dsiface.Client, key *datastore.Key) 
 			log.Fatalf("Empty State history %+v : %+v\n", j, s)
 		}
 	}
-	return jobMap, state.LastInit, nil
+	return jobMap, nil
 
 }
