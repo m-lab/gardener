@@ -46,8 +46,13 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 	m.AddAction(tracker.Deduplicating,
 		nil,
 		dedupFunc,
-		tracker.Complete,
+		tracker.Copying,
 		"Deduplicating")
+	m.AddAction(tracker.Copying,
+		nil,
+		copyFunc,
+		tracker.Complete,
+		"Copying")
 	return m, nil
 }
 
@@ -140,5 +145,43 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 		msg = "Could not convert Detail to QueryStatistics"
 	}
 
+	return Success(j, msg)
+}
+
+// TODO improve test coverage?
+func copyFunc(ctx context.Context, j tracker.Job) *Outcome {
+	// This is the delay since entering the dedup state, due to monitor delay
+	// and retries.
+	//delay := time.Since(stateChangeTime).Round(time.Minute)
+
+	var bqJob bqiface.Job
+	// TODO pass in the JobWithTarget, and get the base from the target.
+	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"))
+	if err != nil {
+		log.Println(err)
+		// This terminates this job.
+		return Failure(j, err, "-")
+	}
+	bqJob, err = qp.CopyToRaw(ctx, false)
+	if err != nil {
+		log.Println(err)
+		// Try again soon.
+		return Retry(j, err, "-")
+	}
+	status, outcome := waitAndCheck(ctx, bqJob, j, "Copy")
+	if !outcome.IsDone() {
+		return outcome
+	}
+
+	var msg string
+	stats := status.Statistics
+	if stats != nil {
+		opTime := stats.EndTime.Sub(stats.StartTime)
+		msg = fmt.Sprintf("Copy took %s (after %s waiting), %d MB Processed",
+			opTime.Round(100*time.Millisecond),
+			"xxx", //delay,
+			stats.TotalBytesProcessed/1000000)
+		log.Println(msg)
+	}
 	return Success(j, msg)
 }

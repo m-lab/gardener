@@ -9,6 +9,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"github.com/googleapis/google-cloud-go-testing/bigquery/bqiface"
+	"google.golang.org/api/iterator"
 
 	"github.com/m-lab/go/dataset"
 
@@ -19,7 +20,7 @@ import (
 type Queryer interface {
 	QueryFor(key string) string
 	Run(ctx context.Context, key string, dryRun bool) (bqiface.Job, error)
-	Copy(ctx context.Context, dryRun bool) (bqiface.Job, error)
+	CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error)
 }
 
 // queryer is used to construct a dedup query.
@@ -130,21 +131,39 @@ func (params queryer) Run(ctx context.Context, key string, dryRun bool) (bqiface
 	return q.Run(ctx)
 }
 
-// Copy copies the tmp_ job partition to the raw_ job partition.
-func (params queryer) Copy(ctx context.Context, dryRun bool) (bqiface.Job, error) {
+// CopyToRaw copies the tmp_ job partition to the raw_ job partition.
+func (params queryer) CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error) {
+	if dryRun {
+		return nil, errors.New("dryrun not implemented")
+	}
 	if params.client == nil {
 		return nil, dataset.ErrNilBqClient
 	}
-	src := params.client.Dataset("tmp_" + params.Job.Experiment).Table(params.Job.Datatype)
-	dest := params.client.Dataset("raw_" + params.Job.Experiment).Table(params.Job.Datatype)
+	client, err := bigquery.NewClient(ctx, params.client.Dataset("tmp_"+params.Job.Experiment).ProjectID())
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO - names should be fields in queryer.
+	src := client.Dataset("tmp_" + params.Job.Experiment).
+		Table(params.Job.Datatype + "$" + params.Job.Date.Format("20060102"))
+	dest := client.Dataset("raw_" + params.Job.Experiment).
+		Table(params.Job.Datatype + "$" + params.Job.Date.Format("20060102"))
+
+	if m, err := src.Metadata(ctx); err == nil {
+		log.Printf("Source %s: %+v\n", src.FullyQualifiedName(), m)
+	}
+	if m, err := dest.Metadata(ctx); err == nil {
+		log.Printf("Dest %s: %+v\n", dest.FullyQualifiedName(), m)
+	}
 
 	copier := dest.CopierFrom(src)
-	config := bqiface.CopyConfig{}
-	config.WriteDisposition = bigquery.WriteTruncate
-	config.Dst = dest
-	config.Srcs = append(config.Srcs, src)
-	copier.SetCopyConfig(config)
-	return copier.Run(ctx)
+	copier.CopyConfig.WriteDisposition = bigquery.WriteTruncate
+	//log.Printf("%+v\n%+v\n%+v\n", config.Srcs[0], config.Dst, *(*bqiface.Copier)(copier))
+
+	j, err := copier.Run(ctx)
+
+	return &xJob{j: j}, err
 }
 
 // Dedup executes a query that deletes duplicates from the destination table.
@@ -205,3 +224,60 @@ DELETE
 FROM ` + tmpTable + `
 WHERE {{.Date}} = "{{.Job.Date.Format "2006-01-02"}}"
 `))
+
+// This is used to allow using bigquery.Copier as a bqiface.Copier.  YUCK.
+type xRowIterator struct {
+	i *bigquery.RowIterator
+	bqiface.RowIterator
+}
+
+func (i *xRowIterator) SetStartIndex(s uint64) {
+	i.i.StartIndex = s
+}
+func (i *xRowIterator) Schema() bigquery.Schema {
+	return i.i.Schema
+}
+func (i *xRowIterator) TotalRows() uint64 {
+	return i.i.TotalRows
+}
+func (i *xRowIterator) Next(p interface{}) error {
+	return i.i.Next(p)
+}
+func (i *xRowIterator) PageInfo() *iterator.PageInfo {
+	return i.i.PageInfo()
+}
+
+func assertRowIterator() {
+	func(bqiface.RowIterator) {}(&xRowIterator{})
+}
+
+type xJob struct {
+	j *bigquery.Job
+	bqiface.Job
+}
+
+func (x *xJob) ID() string {
+	return x.j.ID()
+}
+func (x *xJob) Location() string {
+	return x.j.Location()
+}
+func (x *xJob) Config() (bigquery.JobConfig, error) {
+	return x.j.Config()
+}
+func (x *xJob) Status(ctx context.Context) (*bigquery.JobStatus, error) {
+	return x.j.Status(ctx)
+}
+func (x *xJob) LastStatus() *bigquery.JobStatus {
+	return x.j.LastStatus()
+}
+func (x *xJob) Cancel(ctx context.Context) error {
+	return x.j.Cancel(ctx)
+}
+func (x *xJob) Wait(ctx context.Context) (*bigquery.JobStatus, error) {
+	return x.j.Wait(ctx)
+}
+func (x *xJob) Read(ctx context.Context) (bqiface.RowIterator, error) {
+	i, err := x.j.Read(ctx)
+	return &xRowIterator{i: i}, err
+}

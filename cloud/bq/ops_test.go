@@ -58,15 +58,15 @@ func TestValidateQueries(t *testing.T) {
 				}
 			})
 		}
-		t.Run(dataType+":copy", func(t *testing.T) {
-			j, err := qp.Copy(ctx, true)
-			if err != nil {
-				t.Fatal(t.Name(), err)
-			}
-			status := j.LastStatus()
-			if status.Err() != nil {
-				t.Fatal(t.Name(), status.Err())
-			}
-		})
+//		t.Run(dataType+":copy", func(t *testing.T) {
+//			j, err := qp.Copy(ctx, true)
+//			if err != nil {
+//				t.Fatal(t.Name(), err)
+//			}
+//			status := j.LastStatus()
+//			if status.Err() != nil {
+//				t.Fatal(t.Name(), status.Err())
+//			}
+//		})
 	}
 }
