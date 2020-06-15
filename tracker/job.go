@@ -136,9 +136,10 @@ const (
 	ParseError    State = "parseError"
 	ParseComplete State = "postProcessing" // Ready for post processing, but not started yet.
 	Stabilizing   State = "stabilizing"
+	Loading       State = "loading"
 	Deduplicating State = "deduplicating"
-	Joining       State = "joining"
 	Copying       State = "copying"
+	Joining       State = "joining"
 	Finishing     State = "finishing"
 	Failed        State = "failed"
 	Complete      State = "complete"

@@ -35,14 +35,14 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 	m.AddAction(tracker.ParseComplete,
 		nil,
 		newStateFunc("-"),
-		tracker.Deduplicating,
-		"Changing to Deduplicating")
+		tracker.Loading,
+		"Changing to Loading")
 	// Hack to handle old jobs from previous gardener implementations
-	m.AddAction(tracker.Stabilizing,
+	m.AddAction(tracker.Loading,
 		nil,
-		newStateFunc("-"),
+		loadFunc,
 		tracker.Deduplicating,
-		"Changing to Deduplicating")
+		"Loading")
 	m.AddAction(tracker.Deduplicating,
 		nil,
 		dedupFunc,
@@ -107,8 +107,8 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 
 	var bqJob bqiface.Job
 	var msg string
-	// TODO pass in the JobWithTarget, and get the base from the target.
-	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"), "")
+	project := os.Getenv("PROJECT")
+	qp, err := bq.NewQuerier(j, project, "")
 	if err != nil {
 		log.Println(err)
 		// This terminates this job.
@@ -145,6 +145,55 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 		msg = "Could not convert Detail to QueryStatistics"
 	}
 
+	return Success(j, msg)
+}
+
+// TODO improve test coverage?
+func loadFunc(ctx context.Context, j tracker.Job) *Outcome {
+	// This is the delay since entering the dedup state, due to monitor delay
+	// and retries.
+	//delay := time.Since(stateChangeTime).Round(time.Minute)
+
+	var bqJob bqiface.Job
+	// TODO pass in the JobWithTarget, and get this info from Target.
+	project := os.Getenv("PROJECT")
+	loadSource := fmt.Sprintf("gs://json-%s/%s/%s/%s",
+		project,
+		j.Experiment, j.Datatype, j.Date.Format("2006/01/02/*"))
+	qp, err := bq.NewQuerier(j, project, loadSource)
+	if err != nil {
+		log.Println(err)
+		// This terminates this job.
+		return Failure(j, err, "-")
+	}
+	bqJob, err = qp.LoadToTmp(ctx, false)
+	if err != nil {
+		log.Println(err)
+		// Try again soon.
+		return Retry(j, err, "-")
+	}
+	status, outcome := waitAndCheck(ctx, bqJob, j, "Copy")
+	if !outcome.IsDone() {
+		return outcome
+	}
+
+	var msg string
+	stats := status.Statistics
+	if stats != nil {
+		opTime := stats.EndTime.Sub(stats.StartTime)
+		details := status.Statistics.Details
+		switch td := details.(type) {
+		case *bigquery.LoadStatistics:
+			msg = fmt.Sprintf("Load took %s (after %s waiting), %d rows with %d bytes, from %d files with %d bytes",
+				opTime.Round(100*time.Millisecond),
+				"xxx", //delay,
+				td.OutputRows, td.OutputBytes,
+				td.InputFiles, td.InputFileBytes)
+		default:
+			msg = "Load statistics unavailable"
+		}
+	}
+	log.Println(msg)
 	return Success(j, msg)
 }
 
