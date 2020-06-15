@@ -64,17 +64,16 @@ var errStringLock sync.Mutex
 var errStrings = make(map[string]struct{})
 var maxUniqueErrStrings = 10
 
-func (j Job) failureMetric(errString string) {
+func (j Job) failureMetric(state State, errString string) {
+	log.Printf("Job failed in state: %s -- %s\n", state, errString)
 	errStringLock.Lock()
 	defer errStringLock.Unlock()
 	if _, ok := errStrings[errString]; ok {
 		metrics.FailCount.WithLabelValues(j.Experiment, j.Datatype, errString).Inc()
 	} else if len(errStrings) < maxUniqueErrStrings {
 		errStrings[errString] = struct{}{}
-		log.Println("Job failed:", errString)
 		metrics.FailCount.WithLabelValues(j.Experiment, j.Datatype, errString).Inc()
 	} else {
-		log.Println("Job failed:", errString)
 		metrics.FailCount.WithLabelValues(j.Experiment, j.Datatype, "generic").Inc()
 	}
 }
@@ -120,6 +119,7 @@ var (
 	ErrInvalidStateTransition = errors.New("invalid state transition")
 	ErrNotYetImplemented      = errors.New("not yet implemented")
 	ErrNoChange               = errors.New("no change since last save")
+	ErrSameState              = errors.New("NewState called with same state")
 )
 
 // State types are used for the Status.State values
@@ -199,7 +199,7 @@ func (s *Status) State() State {
 // If the detail is empty, returns the previous state detail.
 func (s *Status) LastUpdate() string {
 	lsi := s.LastStateInfo()
-	if lsi.State == Failed && len(s.History) > 1 {
+	if len(lsi.LastUpdate) == 0 && len(s.History) > 1 {
 		lsi = s.History[len(s.History)-2]
 	}
 	return lsi.LastUpdate
@@ -247,18 +247,15 @@ func (s *Status) Error() string {
 	return ""
 }
 
-// Update applies the detail as LastUpdate, and transitions to new State
-// if different from the previous state.
+// NewState adds a new StateInfo to the status.
+// If state is unchanged, it just logs a waring.
 // Returns the previous StateInfo
-func (s *Status) Update(state State, detail string) StateInfo {
-	old := s.UpdateDetail(detail)
-	if old.State != state {
+func (s *Status) NewState(state State) StateInfo {
+	old := s.LastStateInfo()
+	if old.State == state {
+		log.Println("Warning - same state")
+	} else {
 		s.History = append(s.History, NewStateInfo(state))
-		// For failure, we want to record the error in the final state, too.
-		// TODO - deprecate ParseError?
-		if state == Failed || state == ParseError {
-			s.UpdateDetail(detail)
-		}
 	}
 	return old
 }
