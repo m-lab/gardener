@@ -108,7 +108,7 @@ func dedupFunc(ctx context.Context, j tracker.Job) *Outcome {
 	var bqJob bqiface.Job
 	var msg string
 	// TODO pass in the JobWithTarget, and get the base from the target.
-	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"))
+	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"), "")
 	if err != nil {
 		log.Println(err)
 		// This terminates this job.
@@ -156,7 +156,7 @@ func copyFunc(ctx context.Context, j tracker.Job) *Outcome {
 
 	var bqJob bqiface.Job
 	// TODO pass in the JobWithTarget, and get the base from the target.
-	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"))
+	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"), "")
 	if err != nil {
 		log.Println(err)
 		// This terminates this job.

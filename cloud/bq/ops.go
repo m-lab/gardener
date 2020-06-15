@@ -21,14 +21,16 @@ type Queryer interface {
 	QueryFor(key string) string
 	Run(ctx context.Context, key string, dryRun bool) (bqiface.Job, error)
 	CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error)
+	LoadToTmp(ctx context.Context, dryRun bool) (bqiface.Job, error)
 }
 
 // queryer is used to construct a dedup query.
 type queryer struct {
-	client  bqiface.Client
-	Project string
-	Date    string // Name of the partition field
-	Job     tracker.Job
+	client     bqiface.Client
+	LoadSource string // The bucket/path to load from.
+	Project    string
+	Date       string // Name of the partition field
+	Job        tracker.Job
 	// map key is the single field name, value is fully qualified name
 	Partition map[string]string
 	Order     string
@@ -38,36 +40,38 @@ type queryer struct {
 var ErrDatatypeNotSupported = errors.New("Datatype not supported")
 
 // NewQuerier creates a suitable QueryParams for a Job.
-func NewQuerier(job tracker.Job, project string) (Queryer, error) {
+func NewQuerier(job tracker.Job, project string, loadSource string) (Queryer, error) {
 	c, err := bigquery.NewClient(context.Background(), project)
 	if err != nil {
 		return nil, err
 	}
 	bqClient := bqiface.AdaptClient(c)
-	return NewQuerierWithClient(bqClient, job, project)
+	return NewQuerierWithClient(bqClient, job, project, loadSource)
 }
 
 // NewQuerierWithClient creates a suitable QueryParams for a Job.
-func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string) (Queryer, error) {
+func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string, loadSource string) (Queryer, error) {
 	switch job.Datatype {
 	case "annotation":
 		return &queryer{
-			client:    client,
-			Project:   project,
-			Date:      "date",
-			Job:       job,
-			Partition: map[string]string{"id": "id"},
-			Order:     "",
+			client:     client,
+			LoadSource: loadSource,
+			Project:    project,
+			Date:       "date",
+			Job:        job,
+			Partition:  map[string]string{"id": "id"},
+			Order:      "",
 		}, nil
 
 	case "ndt7":
 		return &queryer{
-			client:    client,
-			Project:   project,
-			Date:      "date",
-			Job:       job,
-			Partition: map[string]string{"id": "id"},
-			Order:     "",
+			client:     client,
+			LoadSource: loadSource,
+			Project:    project,
+			Date:       "date",
+			Job:        job,
+			Partition:  map[string]string{"id": "id"},
+			Order:      "",
 		}, nil
 
 		// TODO: enable tcpinfo again once it supports standard columns.
@@ -131,6 +135,34 @@ func (params queryer) Run(ctx context.Context, key string, dryRun bool) (bqiface
 	return q.Run(ctx)
 }
 
+// LoadToTmp loads the tmp_ exp table from GCS files.
+func (params queryer) LoadToTmp(ctx context.Context, dryRun bool) (bqiface.Job, error) {
+	if dryRun {
+		return nil, errors.New("dryrun not implemented")
+	}
+	if params.client == nil {
+		return nil, dataset.ErrNilBqClient
+	}
+
+	gcsRef := bigquery.NewGCSReference(params.LoadSource)
+	gcsRef.SourceFormat = bigquery.JSON
+
+	dest := params.client.
+		Dataset("tmp_" + params.Job.Experiment).
+		Table(params.Job.Datatype)
+	if dest == nil {
+		return nil, ErrTableNotFound
+	}
+	loader := dest.LoaderFrom(gcsRef)
+	loadConfig := bqiface.LoadConfig{}
+	loadConfig.WriteDisposition = bigquery.WriteAppend
+	loadConfig.Dst = dest
+	loadConfig.Src = gcsRef
+	loader.SetLoadConfig(loadConfig)
+
+	return loader.Run(ctx)
+}
+
 // CopyToRaw copies the tmp_ job partition to the raw_ job partition.
 func (params queryer) CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error) {
 	if dryRun {
@@ -139,6 +171,10 @@ func (params queryer) CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, 
 	if params.client == nil {
 		return nil, dataset.ErrNilBqClient
 	}
+	// HACK - for now, we use a standard bq client, because using
+	// bqiface doesn't seem to actually work.  However, this may
+	// be due to incorrect observations caused by streaming buffer delay,
+	// and should be re-evaluated.
 	client, err := bigquery.NewClient(ctx, params.client.Dataset("tmp_"+params.Job.Experiment).ProjectID())
 	if err != nil {
 		return nil, err
