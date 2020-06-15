@@ -198,7 +198,7 @@ func loadFunc(ctx context.Context, j tracker.Job) *Outcome {
 			msg = "Load statistics unavailable"
 		}
 	}
-	log.Println(msg)
+	log.Println(j, msg)
 	return Success(j, msg)
 }
 
