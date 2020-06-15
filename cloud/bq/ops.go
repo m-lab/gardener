@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"log"
 
@@ -20,8 +21,9 @@ import (
 type Queryer interface {
 	QueryFor(key string) string
 	Run(ctx context.Context, key string, dryRun bool) (bqiface.Job, error)
-	CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error)
 	LoadToTmp(ctx context.Context, dryRun bool) (bqiface.Job, error)
+	CopyToRaw(ctx context.Context, dryRun bool) (bqiface.Job, error)
+	DeleteTmp(ctx context.Context) error
 }
 
 // queryer is used to construct a dedup query.
@@ -92,8 +94,7 @@ func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string
 }
 
 var queryTemplates = map[string]*template.Template{
-	"dedup":   dedupTemplate,
-	"cleanup": cleanupTemplate,
+	"dedup": dedupTemplate,
 }
 
 // MakeQuery creates a query from a template.
@@ -253,13 +254,17 @@ AND NOT EXISTS (
     target.parser.Time = keep.Time
 )`))
 
-var cleanupTemplate = template.Must(template.New("").Parse(`
-#standardSQL
-# Delete all rows in a partition.
-DELETE
-FROM ` + tmpTable + `
-WHERE {{.Date}} = "{{.Job.Date.Format "2006-01-02"}}"
-`))
+// DeleteTmp deletes the tmp table partition.
+func (params queryer) DeleteTmp(ctx context.Context) error {
+	if params.client == nil {
+		return dataset.ErrNilBqClient
+	}
+	// TODO - name should be field in queryer.
+	tmp := params.client.Dataset("tmp_" + params.Job.Experiment).Table(
+		fmt.Sprintf("%s$%s", params.Job.Datatype, params.Job.Date.Format("20060102")))
+	log.Println("Deleting", tmp.FullyQualifiedName())
+	return tmp.Delete(ctx)
+}
 
 // This is used to allow using bigquery.Copier as a bqiface.Copier.  YUCK.
 type xRowIterator struct {

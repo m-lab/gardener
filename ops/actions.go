@@ -51,8 +51,13 @@ func NewStandardMonitor(ctx context.Context, config cloud.BQConfig, tk *tracker.
 	m.AddAction(tracker.Copying,
 		nil,
 		copyFunc,
-		tracker.Complete,
+		tracker.Deleting,
 		"Copying")
+	m.AddAction(tracker.Deleting,
+		nil,
+		deleteFunc,
+		tracker.Complete,
+		"Deleting")
 	return m, nil
 }
 
@@ -172,7 +177,7 @@ func loadFunc(ctx context.Context, j tracker.Job) *Outcome {
 		// Try again soon.
 		return Retry(j, err, "-")
 	}
-	status, outcome := waitAndCheck(ctx, bqJob, j, "Copy")
+	status, outcome := waitAndCheck(ctx, bqJob, j, "Load")
 	if !outcome.IsDone() {
 		return outcome
 	}
@@ -233,4 +238,24 @@ func copyFunc(ctx context.Context, j tracker.Job) *Outcome {
 		log.Println(msg)
 	}
 	return Success(j, msg)
+}
+
+// TODO improve test coverage?
+func deleteFunc(ctx context.Context, j tracker.Job) *Outcome {
+	// TODO pass in the JobWithTarget, and get the base from the target.
+	qp, err := bq.NewQuerier(j, os.Getenv("PROJECT"), "")
+	if err != nil {
+		log.Println(err)
+		// This terminates this job.
+		return Failure(j, err, "-")
+	}
+	err = qp.DeleteTmp(ctx)
+	if err != nil {
+		log.Println(err)
+		// Try again soon.
+		return Retry(j, err, "-")
+	}
+
+	// TODO - add elapsed time to message.
+	return Success(j, "Successfully deleted partition")
 }

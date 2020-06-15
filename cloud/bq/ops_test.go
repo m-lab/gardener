@@ -36,7 +36,7 @@ func TestValidateQueries(t *testing.T) {
 	}
 	ctx := context.Background()
 	dataTypes := []string{"annotation", "ndt7"}
-	keys := []string{"dedup", "cleanup"} // TODO Add "preserve" query
+	keys := []string{"dedup"} // TODO Add "preserve" query
 	// Test for each datatype
 	for _, dataType := range dataTypes {
 		job := tracker.NewJob("bucket", "ndt", dataType, time.Date(2019, 3, 4, 0, 0, 0, 0, time.UTC))
