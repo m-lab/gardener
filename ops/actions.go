@@ -192,6 +192,10 @@ func loadFunc(ctx context.Context, j tracker.Job) *Outcome {
 		details := status.Statistics.Details
 		switch td := details.(type) {
 		case *bigquery.LoadStatistics:
+			metrics.FilesPerDateHistogram.WithLabelValues(
+				j.Experiment+"-json", j.Datatype, j.Date.Format("2006-01")).Observe(float64(td.InputFiles))
+			metrics.BytesPerDateHistogram.WithLabelValues(
+				j.Experiment+"-json", j.Datatype, j.Date.Format("2006-01")).Observe(float64(td.InputFileBytes))
 			msg = fmt.Sprintf("Load took %s (after %s waiting), %d rows with %d bytes, from %d files with %d bytes",
 				opTime.Round(100*time.Millisecond),
 				"xxx", //delay,
