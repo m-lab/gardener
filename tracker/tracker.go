@@ -169,7 +169,7 @@ func (tr *Tracker) AddJob(job Job) error {
 	// TODO - should call this JobsInFlight, to avoid confusion with Tasks in parser.
 	metrics.TasksInFlight.WithLabelValues(job.Experiment, job.Datatype).Inc()
 	tr.jobs[job] = status
-	metrics.StateDate.WithLabelValues(job.Experiment, job.Datatype, string(status.State())).Set(float64(job.Date.Unix()))
+	status.UpdateMetrics(job)
 	return nil
 }
 
@@ -212,26 +212,31 @@ func (tr *Tracker) SetDetail(job Job, detail string) error {
 }
 
 // SetStatus updates a job's state in memory.
-func (tr *Tracker) SetStatus(job Job, newState State, detail string) error {
+// It may or may not change the job state.  If it does change state,
+// the detail string is applied to the last state, not the new state.
+func (tr *Tracker) SetStatus(job Job, state State, detail string) error {
 	// NOTE: This is not a deep copy.  Shares the History elements.
 	status, err := tr.GetStatus(job)
 	if err != nil {
+		metrics.WarningCount.WithLabelValues(job.Experiment, job.Datatype, "NoSuchJob").Inc()
 		return err
 	}
-	old := status.Update(newState, detail)
-	if newState != old.State {
-		log.Println(job, old, "->", newState)
+	last := status.LastStateInfo()
+	status.UpdateDetail(detail)
 
-		timeInState := time.Since(old.Start)
-		metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
-		metrics.StateDate.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Set(float64(job.Date.Unix()))
-	}
-	if newState == ParseComplete {
-		// TODO enable this once we have file or byte counts.
-		// Alternatively, incorporate this into the next Action!
-		// Update the metrics, even if there is an error, since the files were submitted to the queue already.
-		// metrics.FilesPerDateHistogram.WithLabelValues(job.Datatype, strconv.Itoa(job.Date.Year())).Observe(float64(fileCount))
-		// metrics.BytesPerDateHistogram.WithLabelValues(t.Experiment, strconv.Itoa(t.Date.Year())).Observe(float64(byteCount))
+	if state != last.State {
+		status.NewState(state)
+		log.Println(job, last, "->", state)
+
+		status.UpdateMetrics(job)
+
+		if state == ParseComplete {
+			// TODO enable this once we have file or byte counts.
+			// Alternatively, incorporate this into the next Action!
+			// Update the metrics, even if there is an error, since the files were submitted to the queue already.
+			// metrics.FilesPerDateHistogram.WithLabelValues(job.Datatype, strconv.Itoa(job.Date.Year())).Observe(float64(fileCount))
+			// metrics.BytesPerDateHistogram.WithLabelValues(t.Experiment, strconv.Itoa(t.Date.Year())).Observe(float64(byteCount))
+		}
 	}
 	status.UpdateCount++
 	return tr.UpdateJob(job, status)
@@ -253,13 +258,13 @@ func (tr *Tracker) SetJobError(job Job, errString string) error {
 	if err != nil {
 		return err
 	}
-	// For now, we set state to failed.  We may want something different in future.
-	old := status.Update(Failed, errString)
-	job.failureMetric(errString)
+	old := status.LastStateInfo()
+	job.failureMetric(old.State, errString)
+	status.NewState(Failed)
+	// Set the final detail to include the prior state and error message.
+	status.UpdateDetail(fmt.Sprintf("%s: %s", old.State, errString))
 
-	timeInState := time.Since(status.LastStateChangeTime())
-	metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
-	metrics.StateDate.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Set(float64(job.Date.Unix()))
+	status.UpdateMetrics(job)
 
 	return tr.UpdateJob(job, status)
 }
