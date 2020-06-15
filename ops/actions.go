@@ -93,6 +93,9 @@ func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label s
 	if status.Err() != nil {
 		err := status.Err()
 		log.Println(label, err)
+		if len(status.Errors) > 0 {
+			log.Println(label, status.Errors[0])
+		}
 		metrics.WarningCount.WithLabelValues(
 			j.Experiment, j.Datatype,
 			label+"UnknownStatusError").Inc()
