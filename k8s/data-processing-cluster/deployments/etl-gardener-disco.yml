@@ -46,11 +46,11 @@ spec:
           value: "{{GCLOUD_PROJECT}}"
         # NOTE: We read archives from the public archive for all projects.
         - name: TASKFILE_BUCKET
-          value: "archive-measurement-lab"
+          value: "pusher-mlab-sandbox"
         - name: START_DATE
-          value: "20160501"  # Actual start date of switch data.
+          value: "20200619"  # Actual start date of switch data.
         - name: DATE_SKIP  # Should be 0 for normal operation
-          value: "{{DATE_SKIP}}"
+          value: "0"
         - name: TASK_FILE_SKIP # Should be 0 for normal operation
           value: "{{TASK_FILE_SKIP}}"
         - name: EXPERIMENT
