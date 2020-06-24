@@ -68,6 +68,17 @@ func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string
 			OrderKeys:     "",
 		}, nil
 
+	case "ndt5":
+		return &queryer{
+			client:        client,
+			LoadSource:    loadSource,
+			Project:       project,
+			Date:          "DATE(log_time)",
+			Job:           job,
+			PartitionKeys: map[string]string{"test_id": "test_id"},
+			OrderKeys:     "",
+		}, nil
+
 	case "ndt7":
 		return &queryer{
 			client:        client,
@@ -80,17 +91,18 @@ func NewQuerierWithClient(client bqiface.Client, job tracker.Job, project string
 		}, nil
 
 		// TODO: enable tcpinfo again once it supports standard columns.
-	/*case "tcpinfo":
-	return &queryer{
-		client:    client,
-		Project:   project,
-		Date:      "DATE(TestTime)",
-		Job:       job,
-		PartitionKeys: map[string]string{"uuid": "uuid", "Timestamp": "FinalSnapshot.Timestamp"},
-		// TODO TaskFileName should be ArchiveURL once we update the schema.
-		OrderKeys: "ARRAY_LENGTH(Snapshots) DESC, ParseInfo.TaskFileName, ",
-	}, nil
-	*/
+	case "tcpinfo":
+		return &queryer{
+			client:        client,
+			LoadSource:    loadSource,
+			Project:       project,
+			Date:          "DATE(TestTime)",
+			Job:           job,
+			PartitionKeys: map[string]string{"uuid": "uuid", "Timestamp": "FinalSnapshot.Timestamp"},
+			// TODO TaskFileName should be ArchiveURL once we update the schema.
+			OrderKeys: "ARRAY_LENGTH(Snapshots) DESC, ParseInfo.TaskFileName, ",
+		}, nil
+
 	default:
 		return nil, ErrDatatypeNotSupported
 	}
