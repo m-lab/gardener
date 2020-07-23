@@ -1,5 +1,5 @@
 ---
-start_date: 2020-03-12
+start_date: 2020-02-18
 tracker:
   timeout: 5h
 monitor:
@@ -13,6 +13,12 @@ sources:
   experiment: ndt
   datatype: annotation
   target: tmp_ndt.annotation
+# NOTE: ndt5 currently has very high BQ cost reprocessing
+#  2020-07 through 2020-11.
+# - bucket: archive-measurement-lab
+#   experiment: ndt
+#   datatype: ndt5
+#   target: tmp_ndt.ndt5
 #- bucket: archive-measurement-lab
 #  experiment: ndt
 #  datatype: tcpinfo
