@@ -125,6 +125,10 @@ var (
 // This is intended to enforce type safety, but compiler accepts string assignment.  8-(
 type State string
 
+func (s State) String() string {
+	return string(s)
+}
+
 // State values
 // TODO - should we allow different states for different datatypes?
 // In principle, a state could be an object that includes available transitions,
@@ -247,19 +251,23 @@ func (s *Status) Error() string {
 }
 
 // UpdateMetrics handles the StateTimeHistogram and StateDate metric updates.
+// Not thread-safe.  Caller must hold the job's lock.
 func (s *Status) updateMetrics(job Job) {
 	new := s.LastStateInfo()
 	// Update the StateDate metric for new state
 	metrics.StateDate.WithLabelValues(job.Experiment, job.Datatype, string(new.State)).Set(float64(job.Date.Unix()))
 
+	// This should be true except for brand new job.
 	if len(s.History) > 1 {
 		// Track the time in old state
 		old := s.History[len(s.History)-2]
 		timeInState := time.Since(old.Start)
-		if new.State != Init {
-			metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
-		}
+		metrics.StateTimeHistogram.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Observe(timeInState.Seconds())
+		metrics.TasksInFlight.WithLabelValues(job.Experiment, job.Datatype, string(old.State)).Dec()
 	}
+	// TODO - when there is a failure, we should indicate the state that failed!!!
+	// TODO - should call this JobsInFlight, to avoid confusion with Tasks in parser.
+	metrics.TasksInFlight.WithLabelValues(job.Experiment, job.Datatype, string(new.State)).Inc()
 }
 
 // NewState adds a new StateInfo to the status.
