@@ -111,7 +111,7 @@ func waitAndCheck(ctx context.Context, bqJob bqiface.Job, j tracker.Job, label s
 func tableOps(ctx context.Context, j tracker.Job) (*bq.TableOps, error) {
 	// TODO pass in the JobWithTarget, and get this info from Target.
 	project := os.Getenv("PROJECT")
-	loadSource := fmt.Sprintf("gs://etl-%s/%s/%s/%s",
+	loadSource := fmt.Sprintf("gs://json-%s/%s/%s/%s",
 		project,
 		j.Experiment, j.Datatype, j.Date.Format("2006/01/02/*"))
 	return bq.NewTableOps(ctx, j, project, loadSource)
