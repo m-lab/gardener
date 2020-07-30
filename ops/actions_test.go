@@ -26,6 +26,7 @@ func TestStandardMonitor(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	tk, err := tracker.InitTracker(ctx, nil, nil, 0, 0, 0)
 	rtx.Must(err, "tk init")
+	// unsupported
 	tk.AddJob(tracker.NewJob("bucket", "exp", "type", time.Now()))
 	// Valid experiment and datatype
 	tk.AddJob(tracker.NewJob("bucket", "exp2", "tcpinfo", time.Now()))
@@ -61,8 +62,8 @@ func TestStandardMonitor(t *testing.T) {
 	for time.Now().Before(failTime) && (tk.NumJobs() > 2 || tk.NumFailed() < 1) {
 		time.Sleep(time.Millisecond)
 	}
-	if tk.NumFailed() != 2 {
-		t.Error("Expected NumFailed = 2:", tk.NumFailed())
+	if tk.NumFailed() != 1 {
+		t.Error("Expected NumFailed = 1:", tk.NumFailed())
 	}
 	if tk.NumJobs() != 2 {
 		t.Error("Expected NumJobs = 2:", tk.NumJobs())
