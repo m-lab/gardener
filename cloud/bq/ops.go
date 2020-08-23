@@ -114,9 +114,9 @@ func (to TableOps) makeQuery(t *template.Template) string {
 // dedupQuery returns the appropriate query in string form.
 func dedupQuery(to TableOps) string {
 	switch to.Job.Datatype {
-	case "ndt/tcpinfo":
+	case "tcpinfo":
 		fallthrough
-	case "ndt/ndt5":
+	case "ndt5":
 		return to.makeQuery(oldDedupTemplate)
 	default:
 		return to.makeQuery(dedupTemplate)
