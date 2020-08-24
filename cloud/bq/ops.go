@@ -269,6 +269,24 @@ AND NOT EXISTS (
     target.parser.Time = keep.Time
 )`))
 
+var ageTemplate = template.Must(template.New("").Parse(
+	`
+#standardSQL
+SELECT
+  MAX(parser.Time),
+FROM ` + rawTable + `
+WHERE {{.Date}} = "{{.Job.Date.Format "2006-01-02"}}"
+`))
+
+var oldAgeTemplate = template.Must(template.New("").Parse(
+	`
+#standardSQL
+SELECT
+  MAX(parseInfo.ParseTime),
+FROM ` + rawTable + `
+WHERE {{.Date}} = "{{.Job.Date.Format "2006-01-02"}}"
+`))
+
 // DeleteTmp deletes the tmp table partition.
 func (to TableOps) DeleteTmp(ctx context.Context) error {
 	if to.client == nil {
