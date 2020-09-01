@@ -17,7 +17,10 @@ import (
 
 // TrackerConfig holds the config for the job tracker.
 type TrackerConfig struct {
-	Timeout time.Duration `yaml:"timeout"`
+	// NOTE: None of these are used yet.
+	Timeout          time.Duration `yaml:"timeout"` // Deprecated
+	StaleTimeout     time.Duration `yaml:"stale_timeout"`
+	RetentionTimeout time.Duration `yaml:"retention_timeout"`
 }
 
 // MonitorConfig holds the config for the state machine monitor.

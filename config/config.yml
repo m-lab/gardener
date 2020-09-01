@@ -1,7 +1,8 @@
 ---
 start_date: 2019-08-01
 tracker:
-  timeout: 5h
+  stale_timeout: 24h  # Not yet implemented
+  retention_timeout: 12h  # Not yet implemented
 monitor:
   polling_interval: 1m
 sources:
