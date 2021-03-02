@@ -6,7 +6,6 @@ WORKDIR /go/src/github.com/m-lab/etl-gardener
 COPY . .
 
 # Get the requirements and put the produced binaries in /go/bin
-RUN git fetch --prune --unshallow
 RUN go get -v ./...
 WORKDIR /go/src/github.com/m-lab/etl-gardener
 RUN go install \
