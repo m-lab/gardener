@@ -13,6 +13,8 @@ if [[ -z "$_SERVICE_ACCOUNT_MLAB_TESTING" ]] ; then
   exit 1
 fi
 
+gcloud config set project mlab-testing
+
 echo "$_SERVICE_ACCOUNT_MLAB_TESTING" > $PWD/creds.json
 # Make credentials available for Go libraries.
 export GOOGLE_APPLICATION_CREDENTIALS=$PWD/creds.json

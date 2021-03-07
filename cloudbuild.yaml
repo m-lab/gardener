@@ -51,6 +51,8 @@ steps:
   - go test -v ./tracker/... ./ops/... -race
   # Integration testing requires additional SA credentials.
   - ./integration-testing.sh
+  env:
+  - _SERVICE_ACCOUNT_MLAB_TESTING=$_SERVICE_ACCOUNT_MLAB_TESTING
 
 - name: gcr.io/cloud-builders/docker
   id: "Build the etl-gardener docker container"
