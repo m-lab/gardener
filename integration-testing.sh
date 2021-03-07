@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Exit on error.
+set -e
 
 # Install test credentials.
 # The service account variables are uploaded to travis by running,
