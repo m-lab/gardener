@@ -24,14 +24,13 @@ kubectl create configmap gardener-config --dry-run \
     -o yaml > k8s/data-processing/deployments/config.yml
 
 # Apply templates
-CFG=/tmp/${CLUSTER}-${PROJECT}.yml
-kexpand expand --ignore-missing-keys k8s/${CLUSTER}/*/*.yml \
-    --value GCLOUD_PROJECT=${PROJECT} \
-    --value GIT_COMMIT=${TRAVIS_COMMIT} \
-    --value DATE_SKIP=${DATE_SKIP} \
-    --value TASK_FILE_SKIP=${TASK_FILE_SKIP} \
-    > ${CFG}
-cat ${CFG}
+find k8s/${CLUSTER}/ -type f -exec \
+    sed -i \
+      -e 's/GIT_COMMIT/'${GIT_COMMIT}'/g' \
+      -e 's/GCLOUD_PROJECT/'${PROJECT}'/g' \
+      -e 's/DATE_SKIP/'${DATE_SKIP}'/g' \
+      -e 's/TASK_FILE_SKIP/'${TASK_FILE_SKIP}'/g' \
+      {} \;
 
 # This triggers deployment of the pod.
-kubectl apply -f ${CFG}
+kubectl apply --recursive -f k8s/${CLUSTER}
