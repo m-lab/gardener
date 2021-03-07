@@ -48,9 +48,10 @@ install:
 - go get github.com/kopeio/kexpand
 - $TRAVIS_BUILD_DIR/travis/install_gcloud.sh kubectl
 
-# Install dependencies
+# Install dependencies for bin and all tests.
 - cd $TRAVIS_BUILD_DIR
 - go get -v -t ./...
+- go get -v -tags=integration -t ./...
 
 before_script:
 # Try removing boto config, recommended for datastore emulator.
