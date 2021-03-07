@@ -45,11 +45,12 @@ steps:
   - go version
   - go get -v -t ./...
   - go test -v -coverprofile=_unit.cov ./...
+  - go test -v ./tracker/... ./ops/... -race
+  # Integration testing requires additional SA credentials.
   #- gcloud beta emulators datastore start --no-store-on-disk &
   #- sleep 2 # allow time for emulator to start up.
   #- $(gcloud beta emulators datastore env-init)
   # - go test -v -coverprofile=_integration.cov ./... -tags=integration ;
-  - go test -v ./tracker/... ./ops/... -race
 
 - name: gcr.io/cloud-builders/docker
   id: "Build the etl-gardener docker container"
@@ -57,11 +58,11 @@ steps:
     "build", "-t", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG", "."
   ]
 
-#- name: gcr.io/cloud-builders/docker
-#  id: "Push the docker container to gcr.io"
-#  args: [
-#    "push", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG"
-#  ]
+- name: gcr.io/cloud-builders/docker
+  id: "Push the docker container to gcr.io"
+  args: [
+    "push", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG"
+  ]
 
 # Run apply-cluster.sh
 #- name: gcr.io/cloud-builders/kubectl
