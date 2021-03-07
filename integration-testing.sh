@@ -10,13 +10,13 @@ set -e
 #
 # All of the gcloud library calls will detect the GOOGLE_APPLICATION_CREDENTIALS
 # environment variable, and use that file for authentication.
-if [[ -z "$_SERVICE_ACCOUNT_MLAB_TESTING" ]] ; then
+if [[ -z "$SERVICE_ACCOUNT_mlab_testing" ]] ; then
   echo "ERROR: testing service account is unavailable."
   exit 1
 fi
 
 
-echo "$_SERVICE_ACCOUNT_MLAB_TESTING" > $PWD/creds.json
+echo "$SERVICE_ACCOUNT_mlab_testing" > $PWD/creds.json
 # Make credentials available for Go libraries.
 export GOOGLE_APPLICATION_CREDENTIALS=$PWD/creds.json
 if [ -f "/builder/google-cloud-sdk/path.bash.inc" ]; then
@@ -24,7 +24,7 @@ if [ -f "/builder/google-cloud-sdk/path.bash.inc" ]; then
   HOME=/builder
 fi
 # Make credentials available for gcloud commands.
-travis/activate_service_account.sh _SERVICE_ACCOUNT_MLAB_TESTING
+travis/activate_service_account.sh SERVICE_ACCOUNT_mlab_testing
 
 # NOTE: do this after setting the service account.
 gcloud config set project mlab-testing
