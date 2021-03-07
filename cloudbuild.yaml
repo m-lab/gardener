@@ -35,7 +35,7 @@ steps:
   args: ["fetch", "--unshallow"]
 
 - name: gcr.io/cloud-builders/docker
-  id: "Build the docker container"
+  id: "Build the testing docker container"
   args: [
     "build", "-t", "gardener-testing", "-f", "Dockerfile.testing", "."
   ]
@@ -52,7 +52,7 @@ steps:
   - go test -v ./tracker/... ./ops/... -race
 
 - name: gcr.io/cloud-builders/docker
-  id: "Build the docker container"
+  id: "Build the etl-gardener docker container"
   args: [
     "build", "-t", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG", "."
   ]
