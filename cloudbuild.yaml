@@ -33,8 +33,13 @@ options:
   - WORKSPACE_LINK=/go/src/github.com/m-lab/etl-gardener
 
 steps:
+# Make all git tags available.
 - name: gcr.io/cloud-builders/git
   args: ["fetch", "--unshallow"]
+
+# Fetch travis submodule.
+- name: gcr.io/cloud-builders/git
+  args: ["submodule", "update", "--init", "--recursive"]
 
 - name: gcr.io/cloud-builders/docker
   id: "Build the testing docker container"
