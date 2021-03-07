@@ -72,13 +72,13 @@ steps:
   ]
 
 # Run apply-cluster.sh
-#- name: gcr.io/cloud-builders/kubectl
-#  id: "Generate manifest for stats-pipeline deployment"
-#  entrypoint: /bin/sh
-#  args: [
-#   '-c', './apply-cluster.sh'
-#  ]
-#  env:
-#    PROJECT: ${PROJECT_ID}
-#    CLUSTER: $_CLUSTER
-#    GIT_COMMIT: $COMMIT_SHA
+- name: gcr.io/cloud-builders/kubectl
+  id: "Generate manifest for stats-pipeline deployment"
+  entrypoint: /bin/bash
+  args: [
+   './apply-cluster.sh'
+  ]
+  env:
+    PROJECT: ${PROJECT_ID}
+    CLUSTER: $_CLUSTER
+    GIT_COMMIT: $COMMIT_SHA
