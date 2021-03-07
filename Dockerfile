@@ -12,9 +12,8 @@ RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
     && tar -C /usr/local/ -xzf golang.tar.gz \
     && rm golang.tar.gz
 
-ENV PATH /usr/local/go/bin:$PATH
 ENV GOPATH /go
-ENV PATH $GOPATH/bin:$PATH
+ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 WORKDIR $GOPATH
 
@@ -29,17 +28,19 @@ COPY . .
 
 # Get the requirements and put the produced binaries in /go/bin
 RUN go get -v ./...
-RUN go install \
-      -v \
-      -ldflags "-X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h) -X main.Version=$(git describe --tags) -X main.GitCommit=$(git log -1 --format=%H)" \
+RUN go install -v \
+      -ldflags "-X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h) \
+                -X main.Version=$(git describe --tags) \
+                -X main.GitCommit=$(git log -1 --format=%H)" \
       ./cmd/gardener
 
-# Remove sources so later stages can use xyz.
+# Remove sources so external steps can mount the workspace here.
 RUN rm -rf /go/src/github.com/m-lab/etl-gardener
 
 WORKDIR $GOPATH
 ENTRYPOINT ["/go/bin/cbif"]
 
+# Final production image build.
 FROM alpine:3.12
 RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
 
