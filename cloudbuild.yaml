@@ -1,0 +1,76 @@
+#################################################################################
+# Deployment Section
+#
+#  Overview:
+#   1.  Test in sandbox during development
+#   2.  Deploy to staging on commit to master
+#   3.  Deploy to prod when a branch is tagged with prod-* or xxx-prod-*
+#
+#  We want to test individual components in sandbox, and avoid stepping on each
+#  other, so we do NOT automate deployment to sandbox.  Each person should
+#  use a branch name to trigger the single deployment that they are working on.
+#
+#  We want to soak all code in staging before deploying to prod.  To avoid
+#  incompatible components, we deploy ALL elements to staging when we merge
+#  to master.
+#
+#  Deployments to prod are done by deliberately tagging a specific commit,
+#  typically in the master branch, with a tag starting with prod-*.
+#  DO NOT just tag the latest version in master, as someone may have
+#  pushed new code that hasn't had a chance to soak in staging.
+#
+#
+# Deploy steps never trigger on a new Pull Request. Deploy steps will trigger
+# on specific branch name patterns, after a merge to master, or on
+# an explicit tag that matches "on:" conditions.
+#################################################################################
+
+options:
+  env:
+  - PROJECT_ID=$PROJECT_ID
+  - WORKSPACE_LINK=/go/src/github.com/m-lab/etl-gardener
+
+steps:
+- name: gcr.io/cloud-builders/git
+  args: ["fetch", "--unshallow"]
+
+- name: gcr.io/cloud-builders/docker
+  id: "Build the docker container"
+  args: [
+    "build", "-t", "gardener-testing", "-f", "Dockerfile.testing", "."
+  ]
+
+- name: gardener-testing
+  args:
+  - go version
+  - go get -v -t ./...
+  - go test -v -coverprofile=_unit.cov ./...
+  #- gcloud beta emulators datastore start --no-store-on-disk &
+  #- sleep 2 # allow time for emulator to start up.
+  #- $(gcloud beta emulators datastore env-init)
+  # - go test -v -coverprofile=_integration.cov ./... -tags=integration ;
+  - go test -v ./tracker/... ./ops/... -race
+
+- name: gcr.io/cloud-builders/docker
+  id: "Build the docker container"
+  args: [
+    "build", "-t", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG", "."
+  ]
+
+#- name: gcr.io/cloud-builders/docker
+#  id: "Push the docker container to gcr.io"
+#  args: [
+#    "push", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG"
+#  ]
+
+# Run apply-cluster.sh
+#- name: gcr.io/cloud-builders/kubectl
+#  id: "Generate manifest for stats-pipeline deployment"
+#  entrypoint: /bin/sh
+#  args: [
+#   '-c', './apply-cluster.sh'
+#  ]
+#  env:
+#    PROJECT: ${PROJECT_ID}
+#    CLUSTER: $_CLUSTER
+#    GIT_COMMIT: $COMMIT_SHA
