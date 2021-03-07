@@ -21,18 +21,19 @@ RUN apt-get update
 RUN apt-get install -y jq gcc
 RUN go get -v github.com/m-lab/gcp-config/cmd/cbif
 
-ENV CGO_ENABLED 0
 # Copy sources into image before build.
 WORKDIR /go/src/github.com/m-lab/etl-gardener
 COPY . .
 
 # Get the requirements and put the produced binaries in /go/bin
+ENV CGO_ENABLED=0
 RUN go get -v ./...
 RUN go install -v \
       -ldflags "-X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h) \
                 -X main.Version=$(git describe --tags) \
                 -X main.GitCommit=$(git log -1 --format=%H)" \
       ./cmd/gardener
+ENV CGO_ENABLED=
 
 # Remove sources so external steps can mount the workspace here.
 RUN rm -rf /go/src/github.com/m-lab/etl-gardener
