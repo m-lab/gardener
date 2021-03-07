@@ -122,7 +122,7 @@ deploy:
   on:
     repo: m-lab/etl-gardener
     all_branches: true
-    condition: $TRAVIS_BRANCH == sandbox-* && $TRAVIS_EVENT_TYPE == push
+    condition: $TRAVIS_BRANCH == xx-sandbox-* && $TRAVIS_EVENT_TYPE == push
 
 #########################################
 ## Staging
