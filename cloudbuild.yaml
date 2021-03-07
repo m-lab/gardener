@@ -25,6 +25,8 @@
 # an explicit tag that matches "on:" conditions.
 #################################################################################
 
+timeout: 1800s
+
 options:
   env:
   - PROJECT_ID=$PROJECT_ID
@@ -44,13 +46,11 @@ steps:
   args:
   - go version
   - go get -v -t ./...
+  - go get -v -tags=integration -t ./...
   - go test -v -coverprofile=_unit.cov ./...
   - go test -v ./tracker/... ./ops/... -race
   # Integration testing requires additional SA credentials.
-  #- gcloud beta emulators datastore start --no-store-on-disk &
-  #- sleep 2 # allow time for emulator to start up.
-  #- $(gcloud beta emulators datastore env-init)
-  # - go test -v -coverprofile=_integration.cov ./... -tags=integration ;
+  - ./integration-testing.sh
 
 - name: gcr.io/cloud-builders/docker
   id: "Build the etl-gardener docker container"
