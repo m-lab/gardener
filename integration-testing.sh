@@ -15,13 +15,19 @@ if [[ -z "$_SERVICE_ACCOUNT_MLAB_TESTING" ]] ; then
   exit 1
 fi
 
-gcloud config set project mlab-testing
 
 echo "$_SERVICE_ACCOUNT_MLAB_TESTING" > $PWD/creds.json
 # Make credentials available for Go libraries.
 export GOOGLE_APPLICATION_CREDENTIALS=$PWD/creds.json
+if [ -f "/builder/google-cloud-sdk/path.bash.inc" ]; then
+  # Reset home directory for container.
+  HOME=/builder
+fi
 # Make credentials available for gcloud commands.
 travis/activate_service_account.sh _SERVICE_ACCOUNT_MLAB_TESTING
+
+# NOTE: do this after setting the service account.
+gcloud config set project mlab-testing
 
 # Rsync the mlab-testing ndt directory to match expected content.
 pushd testfiles
