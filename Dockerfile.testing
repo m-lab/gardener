@@ -23,6 +23,6 @@ RUN go get -v github.com/m-lab/gcp-config/cmd/cbif
 
 # Install binaries from builds above.
 RUN apt-get update
-RUN apt-get install -y jq
+RUN apt-get install -y jq gcc
 
 ENTRYPOINT ["/go/bin/cbif"]
