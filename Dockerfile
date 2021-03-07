@@ -34,6 +34,9 @@ RUN go install \
       -ldflags "-X github.com/m-lab/go/prometheusx.GitShortCommit=$(git log -1 --format=%h) -X main.Version=$(git describe --tags) -X main.GitCommit=$(git log -1 --format=%H)" \
       ./cmd/gardener
 
+# Remove sources so later stages can use xyz.
+RUN rm -rf /go/src/github.com/m-lab/etl-gardener
+
 WORKDIR $GOPATH
 ENTRYPOINT ["/go/bin/cbif"]
 
