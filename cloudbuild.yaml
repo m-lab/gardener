@@ -79,6 +79,6 @@ steps:
    './apply-cluster.sh'
   ]
   env:
-    PROJECT: ${PROJECT_ID}
-    CLUSTER: $_CLUSTER
-    GIT_COMMIT: $COMMIT_SHA
+  - PROJECT: ${PROJECT_ID}
+  - CLUSTER: $_CLUSTER
+  - GIT_COMMIT: $COMMIT_SHA
