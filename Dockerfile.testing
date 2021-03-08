@@ -12,17 +12,14 @@ RUN curl -fsSL "$GOLANG_DOWNLOAD_URL" -o golang.tar.gz \
     && tar -C /usr/local/ -xzf golang.tar.gz \
     && rm golang.tar.gz
 
-ENV PATH /usr/local/go/bin:$PATH
-
 ENV GOPATH /go
-ENV PATH $GOPATH/bin:$PATH
+ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 WORKDIR $GOPATH
 
-RUN go get -v github.com/m-lab/gcp-config/cmd/cbif
-
-# Install binaries from builds above.
+# Install binaries needed for builds and testing.
 RUN apt-get update
 RUN apt-get install -y jq gcc
+RUN go get -v github.com/m-lab/gcp-config/cmd/cbif
 
 ENTRYPOINT ["/go/bin/cbif"]
