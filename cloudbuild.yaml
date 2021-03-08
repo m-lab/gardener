@@ -71,12 +71,18 @@ steps:
     "push", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG"
   ]
 
+- name: gcr.io/cloud-builders/gcloud
+  id: "check environment"
+  args: [
+    "config", "get-value", "core/project"
+  ]
+
 # UNIVERSAL CLUSTER: Run apply-cluster.sh
 - name: gcr.io/cloud-builders/kubectl
   id: "Deploy universal gardener configuration"
   entrypoint: /bin/bash
   args: [
-   './apply-cluster.sh'
+   '/builder/kubectl.bash ./apply-cluster.sh'
   ]
   env:
   - PROJECT=${PROJECT_ID}
@@ -90,7 +96,7 @@ steps:
   id: "Deploy legacy gardener configurations"
   entrypoint: /bin/bash
   args: [
-   './apply-cluster.sh'
+   '/builder/kubectl.bash ./apply-cluster.sh'
   ]
   env:
   - PROJECT=${PROJECT_ID}
