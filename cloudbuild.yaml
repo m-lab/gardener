@@ -71,9 +71,9 @@ steps:
     "push", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG"
   ]
 
-# Run apply-cluster.sh
+# UNIVERSAL CLUSTER: Run apply-cluster.sh
 - name: gcr.io/cloud-builders/kubectl
-  id: "Generate manifest for stats-pipeline deployment"
+  id: "Deploy universal gardener configuration"
   entrypoint: /bin/bash
   args: [
    './apply-cluster.sh'
@@ -82,5 +82,21 @@ steps:
   - PROJECT=${PROJECT_ID}
   - CLOUDSDK_COMPUTE_REGION=$_CLUSTER_REGION
   - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER
-  - CLUSTER=$_CLUSTER
   - GIT_COMMIT=$COMMIT_SHA
+
+
+# LEGACY CLUSTER: Run apply-cluster.sh
+- name: gcr.io/cloud-builders/kubectl
+  id: "Deploy legacy gardener configurations"
+  entrypoint: /bin/bash
+  args: [
+   './apply-cluster.sh'
+  ]
+  env:
+  - PROJECT=${PROJECT_ID}
+  - CLOUDSDK_COMPUTE_ZONE=$_LEGACY_CLUSTER_ZONE
+  - CLOUDSDK_CONTAINER_CLUSTER=$_LEGACY_CLUSTER
+  - GIT_COMMIT=$COMMIT_SHA
+  # Defaults to zero. Only set in sandbox.
+  - DATE_SKIP=$_DATE_SKIP
+  - TASK_FILE_SKIP=$_TASK_FILE_SKIP
