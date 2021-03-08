@@ -82,7 +82,7 @@ steps:
   id: "Deploy universal gardener configuration"
   entrypoint: /bin/bash
   args: [
-   '/builder/kubectl.bash ./apply-cluster.sh'
+   'cd /workspace && /builder/kubectl.bash ./apply-cluster.sh'
   ]
   env:
   - PROJECT=${PROJECT_ID}
@@ -96,7 +96,7 @@ steps:
   id: "Deploy legacy gardener configurations"
   entrypoint: /bin/bash
   args: [
-   '/builder/kubectl.bash ./apply-cluster.sh'
+   'cd /workspace && /builder/kubectl.bash ./apply-cluster.sh'
   ]
   env:
   - PROJECT=${PROJECT_ID}
