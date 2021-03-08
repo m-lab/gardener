@@ -44,7 +44,7 @@ steps:
 - name: gcr.io/cloud-builders/docker
   id: "Build the testing docker container"
   args: [
-    "build", "-t", "gardener-testing", "--target=gardener-testing", "."
+    "build", "-t", "gardener-testing", "-f", "Dockerfile.testing", "."
   ]
 
 - name: gardener-testing
