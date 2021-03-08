@@ -6,15 +6,15 @@
 #
 # Example:
 #
-#   PROJECT=mlab-sandbox CLUSTER=scraper-cluster ./apply-cluster.sh
+#   PROJECT=mlab-sandbox CLOUDSDK_CONTAINER_CLUSTER=scraper-cluster ./apply-cluster.sh
 
 set -x
 set -e
 set -u
 
-USAGE="PROJECT=<projectid> CLUSTER=<cluster> $0"
+USAGE="PROJECT=<projectid> CLOUDSDK_CONTAINER_CLUSTER=<cluster> $0"
 PROJECT=${PROJECT:?Please provide project id: $USAGE}
-CLUSTER=${CLUSTER:?Please provide cluster name: $USAGE}
+CLUSTER=${CLOUDSDK_CONTAINER_CLUSTER:?Please provide cluster name: $USAGE}
 DATE_SKIP=${DATE_SKIP:-"0"}  # Number of dates to skip between each processed date (for sandbox).
 TASK_FILE_SKIP=${TASK_FILE_SKIP:-"0"}  # Number of files to skip between each processed file (for sandbox).
 
