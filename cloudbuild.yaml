@@ -29,17 +29,22 @@ options:
   env:
   - PROJECT_ID=$PROJECT_ID
   - GIT_COMMIT=$COMMIT_SHA
-  - WORKSPACE_LINK=/go/src/github.com/m-lab/etl-gardener
 
 steps:
 # Make all git tags available.
 - name: gcr.io/cloud-builders/git
+  id: "Unshallow git clone"
   args: ["fetch", "--unshallow"]
 
 # Fetch travis submodule.
 - name: gcr.io/cloud-builders/git
+  id: "Update travis submodule"
   args: ["submodule", "update", "--init", "--recursive"]
 
+# TODO: while local docker builds cache intermediate layers, CB does not.
+# Combine the Dockerfile.testing with the Dockerfile using --target and
+# --from-cache to speed up builds: See also:
+# https://andrewlock.net/caching-docker-layers-on-serverless-build-hosts-with-multi-stage-builds---target,-and---cache-from/
 - name: gcr.io/cloud-builders/docker
   id: "Build the testing docker container"
   args: [
@@ -47,6 +52,7 @@ steps:
   ]
 
 - name: gardener-testing
+  id: "Run all gardener unit tests"
   args:
   - go version
   - go get -v -t ./...
@@ -57,6 +63,7 @@ steps:
   - ./integration-testing.sh
   env:
   - SERVICE_ACCOUNT_mlab_testing=$_SERVICE_ACCOUNT_MLAB_TESTING
+  - WORKSPACE_LINK=/go/src/github.com/m-lab/etl-gardener
 
 - name: gcr.io/cloud-builders/docker
   id: "Build the etl-gardener docker container"
@@ -70,12 +77,6 @@ steps:
     "push", "gcr.io/$PROJECT_ID/etl-gardener:$_DOCKER_TAG"
   ]
 
-- name: gcr.io/cloud-builders/gcloud
-  id: "check environment"
-  args: [
-    "config", "get-value", "core/project"
-  ]
-
 # UNIVERSAL CLUSTER: Run apply-cluster.sh
 - name: gcr.io/cloud-builders/kubectl
   id: "Deploy universal gardener configuration"
@@ -87,8 +88,8 @@ steps:
   - CLOUDSDK_COMPUTE_REGION=$_CLUSTER_REGION
   - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER
 
-
 # LEGACY CLUSTER: Run apply-cluster.sh
+# TODO: delete once legacy cluster services are retired.
 - name: gcr.io/cloud-builders/kubectl
   id: "Deploy legacy gardener configurations"
   entrypoint: /bin/bash
