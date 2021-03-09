@@ -3,18 +3,13 @@
 # Exit on error.
 set -e
 
-# Install test credentials.
-# The service account variables are uploaded to travis by running,
-# from root of repo directory:
-#  travis/setup_service_accounts_for_travis.sh
-#
-# All of the gcloud library calls will detect the GOOGLE_APPLICATION_CREDENTIALS
-# environment variable, and use that file for authentication.
+# Install test credentials for authentication:
+# * gcloud commands will use the activated service account.
+# * Go libraries will use the GOOGLE_APPLICATION_CREDENTIALS.
 if [[ -z "$SERVICE_ACCOUNT_mlab_testing" ]] ; then
   echo "ERROR: testing service account is unavailable."
   exit 1
 fi
-
 
 echo "$SERVICE_ACCOUNT_mlab_testing" > $PWD/creds.json
 # Make credentials available for Go libraries.
@@ -33,6 +28,9 @@ gcloud config set project mlab-testing
 pushd testfiles
 ./sync.sh
 popd
+
+# Remove boto config; recommended for datastore emulator.
+sudo rm -f /etc/boto.cfg
 
 # Start datastore emulator.
 gcloud beta emulators datastore start --no-store-on-disk &
