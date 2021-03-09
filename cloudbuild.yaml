@@ -28,6 +28,7 @@ timeout: 1800s
 options:
   env:
   - PROJECT_ID=$PROJECT_ID
+  - GIT_COMMIT=$COMMIT_SHA
   - WORKSPACE_LINK=/go/src/github.com/m-lab/etl-gardener
 
 steps:
@@ -83,10 +84,8 @@ steps:
    '-c', '/builder/kubectl.bash version && ./apply-cluster.sh'
   ]
   env:
-  - PROJECT=${PROJECT_ID}
   - CLOUDSDK_COMPUTE_REGION=$_CLUSTER_REGION
   - CLOUDSDK_CONTAINER_CLUSTER=$_CLUSTER
-  - GIT_COMMIT=$COMMIT_SHA
 
 
 # LEGACY CLUSTER: Run apply-cluster.sh
@@ -97,10 +96,8 @@ steps:
    '-c', '/builder/kubectl.bash version && ./apply-cluster.sh'
   ]
   env:
-  - PROJECT=${PROJECT_ID}
   - CLOUDSDK_COMPUTE_ZONE=$_LEGACY_CLUSTER_ZONE
   - CLOUDSDK_CONTAINER_CLUSTER=$_LEGACY_CLUSTER
-  - GIT_COMMIT=$COMMIT_SHA
   # Defaults to zero. Only set in sandbox.
   - DATE_SKIP=$_DATE_SKIP
   - TASK_FILE_SKIP=$_TASK_FILE_SKIP
