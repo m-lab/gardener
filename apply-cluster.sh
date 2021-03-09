@@ -26,10 +26,10 @@ kubectl create configmap gardener-config --dry-run \
 # Apply templates
 find k8s/${CLUSTER}/ -type f -exec \
     sed -i \
-      -e 's/GIT_COMMIT/'${GIT_COMMIT}'/g' \
-      -e 's/GCLOUD_PROJECT/'${PROJECT}'/g' \
-      -e 's/DATE_SKIP/'${DATE_SKIP}'/g' \
-      -e 's/TASK_FILE_SKIP/'${TASK_FILE_SKIP}'/g' \
+      -e 's/{{GIT_COMMIT}}/'${GIT_COMMIT}'/g' \
+      -e 's/{{GCLOUD_PROJECT}}/'${PROJECT}'/g' \
+      -e 's/{{DATE_SKIP}}/'${DATE_SKIP}'/g' \
+      -e 's/{{TASK_FILE_SKIP}}/'${TASK_FILE_SKIP}'/g' \
       {} \;
 
 # This triggers deployment of the pod.
