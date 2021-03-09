@@ -30,7 +30,7 @@ pushd testfiles
 popd
 
 # Remove boto config; recommended for datastore emulator.
-sudo rm -f /etc/boto.cfg
+rm -f /etc/boto.cfg || :
 
 # Start datastore emulator.
 gcloud beta emulators datastore start --no-store-on-disk &
