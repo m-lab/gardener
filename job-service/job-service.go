@@ -195,11 +195,7 @@ func (svc *Service) JobHandler(resp http.ResponseWriter, req *http.Request) {
 		}
 		if !ok {
 			log.Println(job, "has no files", job.Bucket)
-			resp.WriteHeader(http.StatusInternalServerError)
-			_, err = resp.Write([]byte("Job has no files.  Try again."))
-			if err != nil {
-				log.Println(err)
-			}
+			resp.WriteHeader(http.StatusNoContent)
 			return
 		}
 	}
